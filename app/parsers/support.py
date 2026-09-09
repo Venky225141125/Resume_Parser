@@ -2,10 +2,53 @@ import re
 
 from app.schemas.document import Block, Document
 from app.sections.base import DetectedSection
+from app.taxonomy_data import load_section_taxonomy
 
 _BULLET_STRIP_CHARS = " \t\n\r-–—|•●▪◦‣⁃·*#."
 _WHITESPACE = re.compile(r"\s+")
 _LABEL_PREFIX = re.compile(r"^[A-Za-z][A-Za-z0-9 /&'\-]{1,30}:\s+(?=\S)")
+_NON_ALNUM = re.compile(r"[^a-z0-9\s]+")
+
+
+def _normalize_heading(text: str) -> str:
+    lowered = text.lower().strip()
+    cleaned = _NON_ALNUM.sub(" ", lowered)
+    return _WHITESPACE.sub(" ", cleaned).strip()
+
+
+def _heading_alias_map() -> dict[str, str]:
+    alias_map: dict[str, str] = {}
+    for canonical, aliases in load_section_taxonomy().items():
+        alias_map[_normalize_heading(canonical)] = canonical
+        for alias in aliases:
+            alias_map[_normalize_heading(alias)] = canonical
+    return alias_map
+
+
+def fallback_section_lines(document: Document, canonical: str) -> list[str]:
+    """Collect lines under `canonical`'s heading when no DetectedSection
+    exists for it. Stops at the next line that names ANY recognized
+    section (via the same taxonomy the main detector uses) — not just a
+    hardcoded few — so a creatively-worded heading after this section
+    (e.g. "Personal Accomplishments", "References:") doesn't get silently
+    absorbed into it.
+    """
+    alias_map = _heading_alias_map()
+    collect = False
+    lines: list[str] = []
+    for line in all_lines(document):
+        normalized = _normalize_heading(line)
+        matched = alias_map.get(normalized) if normalized and len(normalized.split()) <= 6 else None
+        if matched == canonical:
+            collect = True
+            continue
+        if matched and matched != canonical:
+            if collect:
+                break
+            continue
+        if collect:
+            lines.append(line)
+    return lines
 
 
 def clean_line(text: str) -> str:

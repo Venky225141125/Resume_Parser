@@ -141,12 +141,55 @@ def multi_role_multi_project_pdf() -> bytes:
     return buffer.getvalue()
 
 
+def creative_headings_pdf() -> bytes:
+    """Reproduces a real-world resume that broke both section detection and
+    the education parser at once (placeholder data, no PII):
+
+    - section headings phrased creatively rather than with an exact taxonomy
+      word ("VCU Practical Experience:", "Personal Accomplishments", "Key
+      Skills and Software", "Continuous Education, Licenses and
+      Certificates", "References:") — an exact-alias-only heading matcher
+      never recognizes these, so everything from "Education" onward
+      (experience, awards, references — everything) gets absorbed into one
+      giant "education" section.
+    - ordinary bullet prose containing the bare two-letter substring "me"
+      (as in "resulting in", "employment", or the pronoun "me" itself) —
+      the degree regex for M.E./B.E. must not fire on every such line, or
+      dozens of bogus "M.E." education entries get manufactured from
+      unrelated experience/award/reference content.
+    """
+    import fitz
+
+    doc = fitz.open()
+    p = doc.new_page(width=612, height=792)
+    p.insert_text((72, 60), "JANE DOE", fontsize=18, fontname="hebo")
+    p.insert_text((72, 100), "Education", fontsize=14, fontname="hebo")
+    p.insert_text((72, 130), "STATE UNIVERSITY", fontsize=11, fontname="hebo")
+    p.insert_text((72, 150), "Bachelor of Arts, Cinema, December 2020", fontsize=10)
+    p.insert_text((72, 190), "Continuous Education, Licenses and Certificates", fontsize=14, fontname="hebo")
+    p.insert_text((72, 220), "Completed 55 E-learning courses, over 60 hours", fontsize=10)
+    p.insert_text((72, 260), "Key Skills and Software", fontsize=14, fontname="hebo")
+    p.insert_text((72, 300), "VCU Practical Experience:", fontsize=14, fontname="hebo")
+    p.insert_text((72, 330), "AR/VR/XR Project Manager, Acme Experiences, JUL 2020 - Present", fontsize=11, fontname="hebo")
+    p.insert_text((80, 350), "- Guided new customers through sales funnel to retain customers.", fontsize=10)
+    p.insert_text((80, 370), "- Estimated budgets for labor, software, advertising, to apply for grant funding.", fontsize=10)
+    p.insert_text((72, 410), "Personal Accomplishments", fontsize=14, fontname="hebo")
+    p.insert_text((80, 440), "- Pioneered a VR experience, awarded funding to develop the project.", fontsize=10)
+    p.insert_text((72, 480), "References:", fontsize=14, fontname="hebo")
+    p.insert_text((72, 510), "Jordan Smith", fontsize=10)
+    p.insert_text((80, 530), "Chair of Communication Arts and Program Director.", fontsize=10)
+    buffer = BytesIO()
+    doc.save(buffer)
+    doc.close()
+    return buffer.getvalue()
+
+
 def empty_text_pdf() -> bytes:
     import fitz
 
     doc = fitz.open()
     doc.new_page(width=612, height=792)
-    buffer = BytesIO()
+    buffer = BytesIO() 
     doc.save(buffer)
     doc.close()
     return buffer.getvalue()

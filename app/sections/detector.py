@@ -59,16 +59,36 @@ class TaxonomySectionDetector(SectionDetector):
 
     def _match_heading(self, block: Block) -> tuple[str, str, float] | None:
         raw = block.text.strip()
+        if not raw or len(raw) > 80:
+            return None
         normalized = _normalize(raw)
-        if not normalized or len(normalized.split()) > 6:
+        if not normalized:
             return None
-        canonical = self._alias_to_canonical.get(normalized)
-        if not canonical:
-            return None
-        confidence = 0.93 if block.block_type == "heading" else 0.86
-        if len(raw) > 80:
-            return None
-        return canonical, raw, confidence
+        if len(normalized.split()) <= 6:
+            canonical = self._alias_to_canonical.get(normalized)
+            if canonical:
+                confidence = 0.93 if block.block_type == "heading" else 0.86
+                return canonical, raw, confidence
+        # Real resumes phrase headings creatively ("VCU Practical Experience:",
+        # "Personal Accomplishments", "Key Skills and Software") — an exact
+        # alias match misses these. Fall back to "contains a known alias as a
+        # whole phrase", but only for blocks already styled like a heading
+        # (font-size promoted), so an ordinary sentence that happens to
+        # mention "experience" or "education" in passing doesn't get read as
+        # a new section boundary.
+        if block.block_type == "heading" and len(normalized.split()) <= 8:
+            canonical = self._contains_alias(normalized)
+            if canonical:
+                return canonical, raw, 0.75
+        return None
+
+    def _contains_alias(self, normalized: str) -> str | None:
+        padded = f" {normalized} "
+        best: tuple[str, str] | None = None
+        for alias_norm, canonical in self._alias_to_canonical.items():
+            if f" {alias_norm} " in padded and (best is None or len(alias_norm) > len(best[1])):
+                best = (canonical, alias_norm)
+        return best[0] if best else None
 
 
 def _normalize(text: str) -> str:

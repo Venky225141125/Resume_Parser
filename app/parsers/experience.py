@@ -4,7 +4,7 @@ import re
 
 from app.parsers.base import FieldParser
 from app.parsers.dates import parse_date_range, strip_date_range
-from app.parsers.support import all_lines, clean_line, section_lines
+from app.parsers.support import clean_line, fallback_section_lines, section_lines
 from app.schemas.candidate import ExperienceItem
 from app.schemas.document import Document
 from app.sections.base import DetectedSection
@@ -28,7 +28,7 @@ class ExperienceParser(FieldParser):
     def parse(self, document: Document, sections: list[DetectedSection]) -> list[ExperienceItem]:
         lines = section_lines(sections, "experience")
         if not lines:
-            lines = _fallback_experience_lines(document)
+            lines = fallback_section_lines(document, "experience")
 
         roles: list[ExperienceItem] = []
         current: ExperienceItem | None = None
@@ -222,16 +222,3 @@ def _employment_type(text: str) -> str | None:
     return None
 
 
-def _fallback_experience_lines(document: Document) -> list[str]:
-    collect = False
-    lines: list[str] = []
-    for line in all_lines(document):
-        lowered = line.lower()
-        if lowered in {"education", "skills", "projects", "certifications"}:
-            break
-        if lowered in {"experience", "work experience", "professional experience"}:
-            collect = True
-            continue
-        if collect:
-            lines.append(line)
-    return lines

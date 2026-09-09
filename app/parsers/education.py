@@ -4,7 +4,7 @@ import re
 
 from app.parsers.base import FieldParser
 from app.parsers.dates import parse_date_range, parse_date_token
-from app.parsers.support import all_lines, section_lines
+from app.parsers.support import fallback_section_lines, section_lines
 from app.schemas.candidate import EducationItem
 from app.schemas.document import Document
 from app.sections.base import DetectedSection
@@ -18,7 +18,7 @@ _DEGREE = re.compile(
     r"|diploma"
     r"|high school"
     r"|b\.?\s*tech|m\.?\s*tech"
-    r"|b\.?\s*e\.?|m\.?\s*e\.?"
+    r"|\bB\.\s*E\.?\b|\bM\.\s*E\.?\b|(?-i:\bBE\b|\bME\b)"
     r"|b\.?\s*sc\.?|m\.?\s*sc\.?"
     r"|bca|mca"
     r")",
@@ -59,7 +59,7 @@ class EducationParser(FieldParser):
     def parse(self, document: Document, sections: list[DetectedSection]) -> list[EducationItem]:
         lines = section_lines(sections, "education")
         if not lines:
-            lines = _fallback_lines(document, "education")
+            lines = fallback_section_lines(document, "education")
         items: list[EducationItem] = []
         current: EducationItem | None = None
         for line in lines:
@@ -127,18 +127,3 @@ def strip_dates(line: str) -> str:
     text = re.sub(r"\b((?:19|20)\d{2})\b", "", line)
     text = re.sub(r"[,;]\s*$", "", text)
     return text.strip(" ,;-")
-
-
-def _fallback_lines(document: Document, heading: str) -> list[str]:
-    collect = False
-    lines: list[str] = []
-    for line in all_lines(document):
-        lowered = line.lower()
-        if lowered in {"experience", "skills", "projects", "certifications"} and collect:
-            break
-        if lowered == heading or lowered.startswith(heading + " "):
-            collect = True
-            continue
-        if collect:
-            lines.append(line)
-    return lines

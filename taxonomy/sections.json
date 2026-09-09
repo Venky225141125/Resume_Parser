@@ -17,7 +17,7 @@
     "certifications": ["certifications", "certificates", "licenses", "licences"],
     "projects": ["projects", "personal projects", "academic projects"],
     "publications": ["publications", "papers", "research"],
-    "awards": ["awards", "achievements", "honors", "honours"],
+    "awards": ["awards", "achievements", "accomplishments", "honors", "honours"],
     "languages": ["languages", "language proficiency"],
     "volunteer": ["volunteer", "volunteer experience", "volunteering"],
     "references": ["references"]
