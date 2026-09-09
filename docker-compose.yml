@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.example
+    environment:
+      RESUME_PARSER_ENVIRONMENT: development
+      RESUME_PARSER_LLM_ENABLED: "false"
+    volumes:
+      - ./data:/app/data

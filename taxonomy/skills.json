@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "skills": [
+    {
+      "canonical_skill": "Python",
+      "aliases": ["Python", "Python 3", "Python3", "Python programming"],
+      "category": "Programming Language",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "Java",
+      "aliases": ["Java", "Java 8", "Java 11", "Java 17"],
+      "category": "Programming Language",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "JavaScript",
+      "aliases": ["JavaScript", "JS", "Javascript"],
+      "category": "Programming Language",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "TypeScript",
+      "aliases": ["TypeScript", "TS"],
+      "category": "Programming Language",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "SQL",
+      "aliases": ["SQL", "Structured Query Language"],
+      "category": "Programming Language",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "AWS",
+      "aliases": ["AWS", "Amazon Web Services", "Amazon AWS"],
+      "category": "Cloud",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "PostgreSQL",
+      "aliases": ["PostgreSQL", "Postgres", "PostgresSQL", "PostgreSQL DB"],
+      "category": "Database",
+      "subcategory": "Relational",
+      "version": null
+    },
+    {
+      "canonical_skill": "Docker",
+      "aliases": ["Docker", "Docker Engine"],
+      "category": "DevOps",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "Django",
+      "aliases": ["Django", "Django Framework"],
+      "category": "Framework",
+      "subcategory": "Python",
+      "version": null
+    },
+    {
+      "canonical_skill": "React",
+      "aliases": ["React", "React.js", "ReactJS"],
+      "category": "Framework",
+      "subcategory": "JavaScript",
+      "version": null
+    }
+  ]
+}

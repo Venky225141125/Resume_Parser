@@ -1,0 +1,25 @@
+{
+  "version": "1.0",
+  "canonical_sections": {
+    "summary": ["summary", "professional summary", "profile", "objective", "career summary", "about me"],
+    "experience": [
+      "experience",
+      "work experience",
+      "professional experience",
+      "employment",
+      "employment history",
+      "career history",
+      "work history",
+      "career experience"
+    ],
+    "education": ["education", "academic background", "qualifications", "academic qualifications"],
+    "skills": ["skills", "technical skills", "core skills", "competencies", "core competencies"],
+    "certifications": ["certifications", "certificates", "licenses", "licences"],
+    "projects": ["projects", "personal projects", "academic projects"],
+    "publications": ["publications", "papers", "research"],
+    "awards": ["awards", "achievements", "honors", "honours"],
+    "languages": ["languages", "language proficiency"],
+    "volunteer": ["volunteer", "volunteer experience", "volunteering"],
+    "references": ["references"]
+  }
+}
