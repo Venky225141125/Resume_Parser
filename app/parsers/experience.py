@@ -10,6 +10,7 @@ from app.schemas.document import Document
 from app.sections.base import DetectedSection
 
 _AT = re.compile(r"\s+(?:at|@)\s+", re.I)
+_BULLET_RAW = re.compile(r"^\s*(?:[\-*•●▪◦‣⁃]|\d+[.)])\s+")
 _EMPLOYMENT = [
     ("intern", "internship"),
     ("internship", "internship"),
@@ -33,11 +34,15 @@ class ExperienceParser(FieldParser):
         current: ExperienceItem | None = None
 
         for line in lines:
+            # Bullet-ness must be read off the raw line: cleaning strips the
+            # leading marker, so checking it afterwards can never tell a
+            # bullet apart from a title/company line.
+            is_bullet = bool(_BULLET_RAW.match(line))
             normalized = _clean_description_text(line)
             if not normalized:
                 continue
 
-            dates = parse_date_range(normalized)
+            dates = None if is_bullet else parse_date_range(normalized)
             base = _clean_description_text(strip_date_range(normalized)) if dates else normalized
 
             if dates and base:
@@ -82,6 +87,13 @@ class ExperienceParser(FieldParser):
                 )
                 continue
 
+            if is_bullet:
+                if current is not None:
+                    current.description.append(normalized)
+                    if not current.employment_type:
+                        current.employment_type = _employment_type(normalized)
+                continue
+
             if current is None and _looks_like_role_line(normalized):
                 title, company = _split_title_company(normalized)
                 current = ExperienceItem(
@@ -99,20 +111,31 @@ class ExperienceParser(FieldParser):
                     current.company = company
                 continue
 
-            if current is not None:
-                if _looks_like_role_line(normalized) and not current.job_title:
+            if current is not None and _looks_like_role_line(normalized):
+                if not current.job_title:
                     title, company = _split_title_company(normalized)
                     current.job_title = title
                     current.company = current.company or company
                     continue
-                if normalized and not _looks_like_role_line(normalized):
-                    current.description.append(normalized)
-                    if not current.employment_type:
-                        current.employment_type = _employment_type(normalized)
+                # A second role-line while the current entry already has a
+                # title (and something beyond it) means a new position
+                # started — push the finished one instead of dropping this.
+                if current.company or current.description or current.start_date or current.end_date:
+                    roles.append(current)
+                    title, company = _split_title_company(normalized)
+                    current = ExperienceItem(
+                        company=company,
+                        job_title=title,
+                        employment_type=_employment_type(normalized),
+                        description=[],
+                        confidence=0.72,
+                    )
                     continue
 
-            if current is not None and not _looks_like_role_line(normalized):
+            if current is not None:
                 current.description.append(normalized)
+                if not current.employment_type:
+                    current.employment_type = _employment_type(normalized)
 
         if current and (current.job_title or current.company or current.start_date or current.description):
             roles.append(current)

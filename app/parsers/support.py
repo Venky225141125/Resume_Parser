@@ -1,6 +1,6 @@
 import re
 
-from app.schemas.document import Document
+from app.schemas.document import Block, Document
 from app.sections.base import DetectedSection
 
 _BULLET_STRIP_CHARS = " \t\n\r-–—|•●▪◦‣⁃·*#."
@@ -28,6 +28,20 @@ def split_label_prefix(text: str) -> tuple[str | None, str]:
     return (label or None), rest
 
 
+def _block_lines(block: Block) -> list[str]:
+    """A layout Block can span several visual lines (e.g. a PDF clusters a job
+    title and the company/location line right below it into one block). Parsers
+    expect one semantic line per item, so split back out to Line granularity
+    instead of collapsing the block's internal line breaks into a single blob.
+    """
+    if block.lines:
+        split = [line.text.strip() for line in block.lines if line.text.strip()]
+        if split:
+            return split
+    text = block.text.strip()
+    return [text] if text else []
+
+
 def sections_named(sections: list[DetectedSection], *names: str) -> list[DetectedSection]:
     wanted = set(names)
     return [section for section in sections if section.canonical in wanted]
@@ -37,9 +51,7 @@ def section_lines(sections: list[DetectedSection], *names: str) -> list[str]:
     lines: list[str] = []
     for section in sections_named(sections, *names):
         for block in section.blocks:
-            text = block.text.strip()
-            if text:
-                lines.append(text)
+            lines.extend(_block_lines(block))
     return lines
 
 
@@ -50,18 +62,22 @@ def combined_text(sections: list[DetectedSection], *names: str) -> str:
 def preamble_lines(sections: list[DetectedSection], document: Document) -> list[str]:
     header = sections_named(sections, "header")
     if header:
-        return [block.text.strip() for block in header[0].blocks if block.text.strip()]
-    lines: list[str] = []
+        lines: list[str] = []
+        for block in header[0].blocks:
+            lines.extend(_block_lines(block))
+        return lines
+    lines = []
     for block in document.blocks:
         if block.block_type in {"header", "footer"}:
             continue
-        text = block.text.strip()
-        if text:
-            lines.append(text)
+        lines.extend(_block_lines(block))
         if len(lines) >= 8:
             break
     return lines
 
 
 def all_lines(document: Document) -> list[str]:
-    return [block.text.strip() for block in document.blocks if block.text.strip()]
+    lines: list[str] = []
+    for block in document.blocks:
+        lines.extend(_block_lines(block))
+    return lines

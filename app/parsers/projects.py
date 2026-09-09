@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from app.parsers.base import FieldParser
 from app.parsers.dates import parse_date_range, strip_date_range
-from app.parsers.support import clean_line, section_lines
+from app.parsers.support import clean_line, section_lines, split_label_prefix
 from app.schemas.candidate import ProjectItem
 from app.schemas.document import Document
 from app.sections.base import DetectedSection
 from app.taxonomy_data import skill_alias_map
 import re
+
+_BULLET_RAW = re.compile(r"^\s*(?:[\-*•●▪◦‣⁃]|\d+[.)])\s+")
+_METADATA_LABEL_HINTS = ("tech", "stack", "tool", "role", "duration", "link", "url", "repo", "github")
 
 
 class ProjectParser(FieldParser):
@@ -16,12 +19,40 @@ class ProjectParser(FieldParser):
         items: list[ProjectItem] = []
         current: ProjectItem | None = None
         for raw_line in section_lines(sections, "projects"):
+            # Read bullet-ness off the raw line before cleaning strips the
+            # marker — otherwise every bullet looks like a bare title line.
+            is_bullet = bool(_BULLET_RAW.match(raw_line))
             line = clean_line(raw_line)
             if not line:
                 continue
+
+            label, label_remainder = split_label_prefix(line)
+            is_metadata = label is not None and any(hint in label.lower() for hint in _METADATA_LABEL_HINTS)
+
+            if is_bullet:
+                if current:
+                    current.description.append(line)
+                    current.technologies = _unique(current.technologies + _techs(line, mapping))
+                    if not current.url:
+                        current.url = _url(line)
+                continue
+
+            if is_metadata and current:
+                current.technologies = _unique(current.technologies + _techs(label_remainder, mapping))
+                if not current.role and label.lower() == "role":
+                    current.role = label_remainder or None
+                if not current.url:
+                    current.url = _url(line)
+                continue
+
             dates = parse_date_range(line)
             remainder = strip_date_range(line) if dates else line
-            if current is None or _looks_like_title(remainder):
+
+            # A bare (non-bullet, non-metadata) line only starts a new project
+            # once the current one already has content — otherwise it's the
+            # one-line description that sometimes follows a title directly.
+            starts_new = current is None or (current.description and _looks_like_title(remainder))
+            if starts_new:
                 if current:
                     items.append(current)
                 current = ProjectItem(
@@ -45,7 +76,7 @@ class ProjectParser(FieldParser):
 
 
 def _looks_like_title(text: str) -> bool:
-    return bool(text) and not text.startswith(("-", "•", "*")) and len(text) < 90
+    return bool(text) and len(text) < 90
 
 
 def _url(text: str) -> str | None:

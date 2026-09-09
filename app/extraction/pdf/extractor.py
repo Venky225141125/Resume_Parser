@@ -56,7 +56,7 @@ class PdfExtractor(DocumentExtractor):
             height = float(page.rect.height)
             page_dict = page.get_text("dict")
             page_blocks, page_lines, sizes, block_font_sizes = _blocks_from_dict(
-                page_dict, number, height
+                page_dict, number
             )
             _tag_headings(page_blocks, sizes, block_font_sizes)
             col_count = _assign_columns(page_blocks, width)
@@ -106,7 +106,6 @@ def _rect_to_bbox(rect: list[float] | tuple[float, ...]) -> BBox:
 def _blocks_from_dict(
     page_dict: dict,
     page_number: int,
-    page_height: float,
 ) -> tuple[list[Block], list[Line], list[float], list[float]]:
     blocks: list[Block] = []
     lines: list[Line] = []
@@ -136,7 +135,7 @@ def _blocks_from_dict(
         if not block_text:
             continue
         bbox = _rect_to_bbox(raw_block["bbox"]) if "bbox" in raw_block else None
-        block_type = _infer_block_type(block_text, bbox, page_height)
+        block_type = _infer_block_type(block_text)
         blocks.append(
             Block(
                 text=block_text,
@@ -161,15 +160,14 @@ def _blocks_from_dict(
     return blocks, lines, sizes, block_font_sizes
 
 
-def _infer_block_type(text: str, bbox: BBox | None, page_height: float) -> BlockType:
+def _infer_block_type(text: str) -> BlockType:
+    """Position alone must not decide header/footer — see _mark_headers_footers,
+    which uses cross-page repetition instead. A block that merely starts near
+    the top of a page (e.g. a section heading right after a page break) is not
+    a running header."""
     first = text.split("\n", 1)[0]
     if _LIST_PREFIX.match(first):
         return "list_item"
-    if bbox and page_height:
-        if bbox.y1 < page_height * 0.08:
-            return "header"
-        if bbox.y0 > page_height * 0.92:
-            return "footer"
     return "paragraph"
 
 
