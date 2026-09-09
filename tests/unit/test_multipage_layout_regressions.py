@@ -2,9 +2,11 @@
 title/date row-clustering merging title+company, a missing role-transition
 when a second job's title has no date on the same line, a bullet dropped
 because its text happened to contain a role keyword, a PROJECTS heading lost
-because it sat at the very top of page 2, and project "Tech Stack:" lines
-being misread as new projects. See tests/helpers/sample_documents.py for the
-synthetic (non-PII) fixture that reproduces the layout.
+because it sat at the very top of page 2, project "Tech Stack:" lines being
+misread as new projects, and a word-wrapped bullet's second visual line
+being shredded into a bogus new title/company pair. See
+tests/helpers/sample_documents.py for the synthetic (non-PII) fixture that
+reproduces the layout.
 """
 
 from app.pipeline.orchestrator import ParsePipeline
@@ -36,7 +38,18 @@ def test_experience_starts_a_new_role_for_a_standalone_title_line():
 def test_experience_bullet_is_not_dropped_when_it_contains_a_role_keyword():
     response = _parse()
     second = response.data.experience[1]
-    assert any("Delivered training on Core Java" in item for item in second.description)
+    assert any("Delivered structured training on Core Java" in item for item in second.description)
+
+
+def test_wrapped_bullet_stays_one_description_item_not_a_bogus_new_role():
+    response = _parse()
+    assert len(response.data.experience) == 2
+    first = response.data.experience[0]
+    # The bullet wraps across two visual PDF lines ("...Spring MVC, and" /
+    # "Spring Boot, following..."); the wrap boundary text proves it survived
+    # as one joined description item instead of being split into a second,
+    # bogus experience entry.
+    assert any("Spring MVC, and Spring Boot" in item for item in first.description)
 
 
 def test_projects_section_survives_starting_on_page_two():
@@ -52,7 +65,10 @@ def test_project_tech_stack_line_is_not_treated_as_a_new_project():
     projects = {item.name: item for item in response.data.projects}
     grievance = projects["Grievance Management System"]
     assert "React" in grievance.technologies
-    assert any("Built a full-stack issue reporting platform" in d for d in grievance.description)
+    assert any(
+        "Built a full-stack civic-issue reporting platform enabling villagers" in d
+        for d in grievance.description
+    )
 
 
 def test_certification_bullet_marker_is_stripped_from_name():

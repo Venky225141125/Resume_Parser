@@ -29,11 +29,23 @@ def split_label_prefix(text: str) -> tuple[str | None, str]:
 
 
 def _block_lines(block: Block) -> list[str]:
-    """A layout Block can span several visual lines (e.g. a PDF clusters a job
-    title and the company/location line right below it into one block). Parsers
-    expect one semantic line per item, so split back out to Line granularity
-    instead of collapsing the block's internal line breaks into a single blob.
+    """A layout Block can span several visual PDF lines for two different
+    reasons that need opposite handling:
+
+    - it clusters two distinct items (e.g. a job title and the company/
+      location line right below it) — these must be split back out so
+      parsers see one semantic line per item.
+    - it is a single bullet/paragraph that merely *word-wraps* onto a second
+      visual line — that continuation belongs to the same logical line and
+      must stay joined, or its second half gets parsed as a bogus new item.
+
+    A block already carries which case it is: `list_item`/`table_cell`
+    blocks are one semantic unit no matter how many visual lines they wrap
+    across, so only split blocks that aren't already known to be one unit.
     """
+    if block.block_type in {"list_item", "table_cell"}:
+        text = block.text.replace("\n", " ").strip()
+        return [text] if text else []
     if block.lines:
         split = [line.text.strip() for line in block.lines if line.text.strip()]
         if split:

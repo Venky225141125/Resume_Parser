@@ -63,6 +63,9 @@ def multi_role_multi_project_pdf() -> bytes:
       mistaken for a running header bug)
     - each project is followed by a "Tech Stack:" metadata line before its
       bullets (project-metadata-treated-as-new-project bug)
+    - several bullets are long enough to word-wrap across two visual PDF
+      lines within one paragraph block (wrapped-bullet-shredded-into-a-
+      bogus-title/company-pair bug)
     """
     import fitz
 
@@ -75,23 +78,38 @@ def multi_role_multi_project_pdf() -> bytes:
     p1.insert_text((72, 176), "Associate Software Engineer", fontsize=11, fontname="hebo")
     p1.insert_text((430, 176), "Feb 2026 - Present", fontsize=10)
     p1.insert_text((72, 192), "Acme Scientific Pvt. Ltd. | Hyderabad, Telangana", fontsize=10)
-    p1.insert_text((80, 212), "- Build and maintain scalable web applications.", fontsize=10)
-    p1.insert_text((80, 228), "- Design and implement REST APIs.", fontsize=10)
-    p1.insert_text((72, 260), "Java Trainer", fontsize=11, fontname="hebo")
-    p1.insert_text((430, 260), "May 2025 - Jan 2026", fontsize=10)
-    p1.insert_text((72, 276), "Freelance / Institute-based Training", fontsize=10)
-    p1.insert_text((80, 296), "- Delivered training on Core Java.", fontsize=10)
+    p1.insert_textbox(
+        fitz.Rect(80, 212, 540, 244),
+        "- Build and maintain scalable, production-grade web applications using core Java, "
+        "Spring MVC, and Spring Boot, following OOP principles.",
+        fontsize=10,
+    )
+    p1.insert_text((80, 250), "- Design and implement REST APIs.", fontsize=10)
+    p1.insert_text((72, 282), "Java Trainer", fontsize=11, fontname="hebo")
+    p1.insert_text((430, 282), "May 2025 - Jan 2026", fontsize=10)
+    p1.insert_text((72, 298), "Freelance / Institute-based Training", fontsize=10)
+    p1.insert_textbox(
+        fitz.Rect(80, 318, 540, 350),
+        "- Delivered structured training on Core Java, JDBC, OOP, and backend development "
+        "with Spring Boot to 40+ students.",
+        fontsize=10,
+    )
 
     p2 = doc.new_page(width=612, height=792)
     p2.insert_text((72, 50), "PROJECTS", fontsize=14, fontname="hebo")
     p2.insert_text((72, 76), "Grievance Management System", fontsize=11, fontname="hebo")
     p2.insert_text((72, 92), "Tech Stack: Spring Boot, React.js, MySQL", fontsize=9)
-    p2.insert_text((80, 112), "- Built a full-stack issue reporting platform.", fontsize=10)
-    p2.insert_text((72, 150), "Employee Data Management System", fontsize=11, fontname="hebo")
-    p2.insert_text((72, 166), "Tech Stack: Java, Spring Boot, MySQL", fontsize=9)
-    p2.insert_text((80, 186), "- Developed a backend system to manage employee records.", fontsize=10)
-    p2.insert_text((72, 220), "CERTIFICATIONS", fontsize=14, fontname="hebo")
-    p2.insert_text((80, 240), "Full Stack Development - Example Institute (2022)", fontsize=10)
+    p2.insert_textbox(
+        fitz.Rect(80, 112, 540, 144),
+        "- Built a full-stack civic-issue reporting platform enabling villagers to report "
+        "problems such as road damage and water supply issues.",
+        fontsize=10,
+    )
+    p2.insert_text((72, 160), "Employee Data Management System", fontsize=11, fontname="hebo")
+    p2.insert_text((72, 176), "Tech Stack: Java, Spring Boot, MySQL", fontsize=9)
+    p2.insert_text((80, 196), "- Developed a backend system to manage employee records.", fontsize=10)
+    p2.insert_text((72, 230), "CERTIFICATIONS", fontsize=14, fontname="hebo")
+    p2.insert_text((80, 250), "Full Stack Development - Example Institute (2022)", fontsize=10)
 
     buffer = BytesIO()
     doc.save(buffer)
