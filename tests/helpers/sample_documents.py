@@ -63,11 +63,24 @@ def multi_role_multi_project_pdf() -> bytes:
       mistaken for a running header bug)
     - each project is followed by a "Tech Stack:" metadata line before its
       bullets (project-metadata-treated-as-new-project bug)
-    - several bullets are long enough to word-wrap across two visual PDF
-      lines within one paragraph block (wrapped-bullet-shredded-into-a-
-      bogus-title/company-pair bug)
+    - bullets word-wrap across two visual PDF lines *within the same PDF
+      block as the following role's header* — the exact real-world layout
+      that produces a block mixing a wrapped bullet continuation with a new
+      title/date/company (wrapped-bullet-and-next-role-crammed-into-one-
+      block bug). Line placement below is deliberately baseline-precise
+      (not `insert_textbox`) to reproduce the real PDF's spacing: a wrapped
+      continuation sits ~0.4pt below the previous line, while a genuinely
+      new line sits >=1.4pt below — see `_block_lines` in
+      app/parsers/support.py, which relies on exactly that distinction.
     """
     import fitz
+
+    line_height = 13.74  # measured PyMuPDF line bbox height at fontsize=10 (helv)
+    wrap_gap = 0.4
+    item_gap = 2.0
+
+    def next_baseline(baseline: float, gap: float) -> float:
+        return baseline + line_height + gap
 
     doc = fitz.open()
     p1 = doc.new_page(width=612, height=792)
@@ -75,41 +88,52 @@ def multi_role_multi_project_pdf() -> bytes:
     p1.insert_text((72, 84), "Java Full Stack Developer", fontsize=12)
     p1.insert_text((72, 104), "jane.doe@example.com | +1 415 555 0100", fontsize=10)
     p1.insert_text((72, 150), "WORK EXPERIENCE", fontsize=14, fontname="hebo")
-    p1.insert_text((72, 176), "Associate Software Engineer", fontsize=11, fontname="hebo")
-    p1.insert_text((430, 176), "Feb 2026 - Present", fontsize=10)
-    p1.insert_text((72, 192), "Acme Scientific Pvt. Ltd. | Hyderabad, Telangana", fontsize=10)
-    p1.insert_textbox(
-        fitz.Rect(80, 212, 540, 244),
-        "- Build and maintain scalable, production-grade web applications using core Java, "
-        "Spring MVC, and Spring Boot, following OOP principles.",
-        fontsize=10,
-    )
-    p1.insert_text((80, 250), "- Design and implement REST APIs.", fontsize=10)
-    p1.insert_text((72, 282), "Java Trainer", fontsize=11, fontname="hebo")
-    p1.insert_text((430, 282), "May 2025 - Jan 2026", fontsize=10)
-    p1.insert_text((72, 298), "Freelance / Institute-based Training", fontsize=10)
-    p1.insert_textbox(
-        fitz.Rect(80, 318, 540, 350),
-        "- Delivered structured training on Core Java, JDBC, OOP, and backend development "
-        "with Spring Boot to 40+ students.",
-        fontsize=10,
-    )
+
+    y = 176.0
+    p1.insert_text((72, y), "Associate Software Engineer", fontsize=11, fontname="hebo")
+    p1.insert_text((430, y), "Feb 2026 - Present", fontsize=10)
+    y = next_baseline(y, item_gap)
+    p1.insert_text((72, y), "Acme Scientific Pvt. Ltd. | Hyderabad, Telangana", fontsize=10)
+    y = next_baseline(y, item_gap)
+    p1.insert_text((72, y), "- Build and maintain scalable, production-grade web applications", fontsize=10)
+    y = next_baseline(y, wrap_gap)
+    p1.insert_text((72, y), "using core Java, Spring MVC, and Spring Boot, following OOP principles.", fontsize=10)
+    y = next_baseline(y, item_gap)
+    p1.insert_text((72, y), "- Design and implement REST APIs.", fontsize=10)
+    # The next role's title/date/company crammed into the same PDF block as
+    # the previous bullet's wrap — reproduces the real document exactly.
+    # The gap here is still smaller than the normal inter-item gap (as it
+    # was in the real PDF, ~3.5pt vs ~1.4pt) but must clear the threshold.
+    y = next_baseline(y, item_gap * 1.5)
+    p1.insert_text((72, y), "Java Trainer", fontsize=11, fontname="hebo")
+    p1.insert_text((430, y), "May 2025 - Jan 2026", fontsize=10)
+    y = next_baseline(y, item_gap)
+    p1.insert_text((72, y), "Freelance / Institute-based Training", fontsize=10)
+    y = next_baseline(y, item_gap)
+    p1.insert_text((72, y), "- Delivered structured training on Core Java, JDBC, OOP, and backend", fontsize=10)
+    y = next_baseline(y, wrap_gap)
+    p1.insert_text((72, y), "development with Spring Boot to 40+ students.", fontsize=10)
 
     p2 = doc.new_page(width=612, height=792)
     p2.insert_text((72, 50), "PROJECTS", fontsize=14, fontname="hebo")
-    p2.insert_text((72, 76), "Grievance Management System", fontsize=11, fontname="hebo")
-    p2.insert_text((72, 92), "Tech Stack: Spring Boot, React.js, MySQL", fontsize=9)
-    p2.insert_textbox(
-        fitz.Rect(80, 112, 540, 144),
-        "- Built a full-stack civic-issue reporting platform enabling villagers to report "
-        "problems such as road damage and water supply issues.",
-        fontsize=10,
-    )
-    p2.insert_text((72, 160), "Employee Data Management System", fontsize=11, fontname="hebo")
-    p2.insert_text((72, 176), "Tech Stack: Java, Spring Boot, MySQL", fontsize=9)
-    p2.insert_text((80, 196), "- Developed a backend system to manage employee records.", fontsize=10)
-    p2.insert_text((72, 230), "CERTIFICATIONS", fontsize=14, fontname="hebo")
-    p2.insert_text((80, 250), "Full Stack Development - Example Institute (2022)", fontsize=10)
+    y = 76.0
+    p2.insert_text((72, y), "Grievance Management System", fontsize=11, fontname="hebo")
+    y = next_baseline(y, item_gap)
+    p2.insert_text((72, y), "Tech Stack: Spring Boot, React.js, MySQL", fontsize=9)
+    y = next_baseline(y, item_gap)
+    p2.insert_text((72, y), "- Built a full-stack civic-issue reporting platform enabling villagers to", fontsize=10)
+    y = next_baseline(y, wrap_gap)
+    p2.insert_text((72, y), "report problems such as road damage and water supply issues.", fontsize=10)
+    y = next_baseline(y, 20)
+    p2.insert_text((72, y), "Employee Data Management System", fontsize=11, fontname="hebo")
+    y = next_baseline(y, item_gap)
+    p2.insert_text((72, y), "Tech Stack: Java, Spring Boot, MySQL", fontsize=9)
+    y = next_baseline(y, item_gap)
+    p2.insert_text((72, y), "- Developed a backend system to manage employee records.", fontsize=10)
+    y = next_baseline(y, 20)
+    p2.insert_text((72, y), "CERTIFICATIONS", fontsize=14, fontname="hebo")
+    y = next_baseline(y, item_gap)
+    p2.insert_text((72, y), "Full Stack Development - Example Institute (2022)", fontsize=10)
 
     buffer = BytesIO()
     doc.save(buffer)

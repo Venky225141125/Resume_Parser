@@ -9,8 +9,14 @@ from app.extraction.sniff import FileKind
 from app.schemas.document import BBox, Block, BlockType, Document, DocumentMetadata, Line, Page, Table, Word
 
 _OCR_CHAR_THRESHOLD = 40
+_BULLET_CHARS = r"\-\*\u2022\u00b7\u25cf\u25aa\u25e6\u2023\u2043"
 _LIST_PREFIX = re.compile(
-    r"^(?:[\-\*\u2022\u00b7\u25cf\u25aa\u25e6\u2023\u2043]|\d+[.)])\s+"
+    # A bullet glyph followed by its text on the same visual line ("- Built...")
+    r"^(?:[" + _BULLET_CHARS + r"]|\d+[.)])\s+"
+    # ...or the bullet glyph alone as the entire first line, with the actual
+    # text starting on the next line (some PDF generators emit the marker
+    # and the sentence as separate text runs within one paragraph block).
+    r"|^[" + _BULLET_CHARS + r"]\s*$"
 )
 
 

@@ -3,7 +3,7 @@ from app.pipeline.orchestrator import ParsePipeline
 
 
 def main() -> None:
-    resume_path = Path(r"C:\Users\19802\Documents\Purna_Chandra_Reddy.pdf")
+    resume_path = Path(r"E:\POC_AI\Purna_Chandra_Reddy.pdf")
 
     if not resume_path.exists():
         sample = (
