@@ -4,7 +4,7 @@ import re
 
 from app.parsers.base import FieldParser
 from app.parsers.dates import parse_date_range, strip_date_range
-from app.parsers.support import all_lines, section_lines
+from app.parsers.support import all_lines, clean_line, section_lines
 from app.schemas.candidate import ExperienceItem
 from app.schemas.document import Document
 from app.sections.base import DetectedSection
@@ -188,9 +188,7 @@ def _clean(value: str) -> str | None:
 
 
 def _clean_description_text(text: str) -> str:
-    cleaned = re.sub(r"\s+", " ", text)
-    cleaned = cleaned.strip(" \t\n\r-–—|•●▪◦·*#.")
-    return cleaned
+    return clean_line(text)
 
 
 def _employment_type(text: str) -> str | None:

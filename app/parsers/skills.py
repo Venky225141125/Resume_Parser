@@ -3,13 +3,14 @@ from __future__ import annotations
 import re
 
 from app.parsers.base import FieldParser
-from app.parsers.support import combined_text, section_lines
+from app.parsers.support import combined_text, section_lines, split_label_prefix
 from app.schemas.candidate import SkillItem
 from app.schemas.document import Document
 from app.sections.base import DetectedSection
 from app.taxonomy_data import skill_alias_map
 
 _SPLIT = re.compile(r"[,;/|•\n]+")
+_MAX_SKILL_WORDS = 4
 
 
 class SkillsParser(FieldParser):
@@ -64,11 +65,17 @@ class SkillsParser(FieldParser):
 def _tokens(lines: list[str]) -> list[str]:
     tokens: list[str] = []
     for line in lines:
-        parts = _SPLIT.split(line)
+        _, remainder = split_label_prefix(line)
+        parts = _SPLIT.split(remainder)
         for part in parts:
             cleaned = part.strip(" -•*")
-            if cleaned:
-                tokens.append(cleaned)
+            if not cleaned:
+                continue
+            if len(cleaned.split()) > _MAX_SKILL_WORDS:
+                # Likely a descriptive phrase ("SQL query design & optimization"),
+                # not a discrete skill — drop rather than store a false positive.
+                continue
+            tokens.append(cleaned)
     return tokens
 
 

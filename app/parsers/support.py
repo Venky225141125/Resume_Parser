@@ -1,5 +1,31 @@
+import re
+
 from app.schemas.document import Document
 from app.sections.base import DetectedSection
+
+_BULLET_STRIP_CHARS = " \t\n\r-–—|•●▪◦‣⁃·*#."
+_WHITESPACE = re.compile(r"\s+")
+_LABEL_PREFIX = re.compile(r"^[A-Za-z][A-Za-z0-9 /&'\-]{1,30}:\s+(?=\S)")
+
+
+def clean_line(text: str) -> str:
+    """Strip bullet glyphs/whitespace noise that extraction leaves on a line."""
+    cleaned = _WHITESPACE.sub(" ", text)
+    return cleaned.strip(_BULLET_STRIP_CHARS)
+
+
+def split_label_prefix(text: str) -> tuple[str | None, str]:
+    """Split a "Label: rest" line (e.g. "Languages: Java") into (label, rest).
+
+    Returns (None, text) when there is no short leading label — avoids
+    mangling ordinary sentences that merely contain a colon.
+    """
+    match = _LABEL_PREFIX.match(text)
+    if not match:
+        return None, text
+    label = match.group(0)[:-1].strip()
+    rest = text[match.end():].strip()
+    return (label or None), rest
 
 
 def sections_named(sections: list[DetectedSection], *names: str) -> list[DetectedSection]:

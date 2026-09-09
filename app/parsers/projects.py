@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.parsers.base import FieldParser
 from app.parsers.dates import parse_date_range, strip_date_range
-from app.parsers.support import section_lines
+from app.parsers.support import clean_line, section_lines
 from app.schemas.candidate import ProjectItem
 from app.schemas.document import Document
 from app.sections.base import DetectedSection
@@ -15,7 +15,10 @@ class ProjectParser(FieldParser):
         mapping = skill_alias_map()
         items: list[ProjectItem] = []
         current: ProjectItem | None = None
-        for line in section_lines(sections, "projects"):
+        for raw_line in section_lines(sections, "projects"):
+            line = clean_line(raw_line)
+            if not line:
+                continue
             dates = parse_date_range(line)
             remainder = strip_date_range(line) if dates else line
             if current is None or _looks_like_title(remainder):

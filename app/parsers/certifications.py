@@ -4,7 +4,7 @@ import re
 
 from app.parsers.base import FieldParser
 from app.parsers.dates import parse_date_range, parse_date_token
-from app.parsers.support import section_lines
+from app.parsers.support import clean_line, section_lines
 from app.schemas.candidate import CertificationItem
 from app.schemas.document import Document
 from app.sections.base import DetectedSection
@@ -15,7 +15,10 @@ _ORG = re.compile(r"\s+(?:[-–—]|by|from)\s+", re.I)
 class CertificationParser(FieldParser):
     def parse(self, document: Document, sections: list[DetectedSection]) -> list[CertificationItem]:
         items: list[CertificationItem] = []
-        for line in section_lines(sections, "certifications"):
+        for raw_line in section_lines(sections, "certifications"):
+            line = clean_line(raw_line)
+            if not line:
+                continue
             dates = parse_date_range(line)
             year = None
             if not dates:

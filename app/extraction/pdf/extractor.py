@@ -9,7 +9,9 @@ from app.extraction.sniff import FileKind
 from app.schemas.document import BBox, Block, BlockType, Document, DocumentMetadata, Line, Page, Table, Word
 
 _OCR_CHAR_THRESHOLD = 40
-_LIST_PREFIX = re.compile(r"^(?:[\-\*\u2022\u00b7]|\d+[.)])\s+")
+_LIST_PREFIX = re.compile(
+    r"^(?:[\-\*\u2022\u00b7\u25cf\u25aa\u25e6\u2023\u2043]|\d+[.)])\s+"
+)
 
 
 class PdfExtractor(DocumentExtractor):
