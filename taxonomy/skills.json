@@ -70,6 +70,188 @@
       "category": "Framework",
       "subcategory": "JavaScript",
       "version": null
+    },
+    {
+      "canonical_skill": "Java",
+      "aliases": ["Java", "Java 8", "Java 11", "Java 17", "Core Java", "CoreJava"],
+      "category": "Programming Language",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "J2EE",
+      "aliases": ["J2EE", "JEE", "Java EE"],
+      "category": "Framework",
+      "subcategory": "Java",
+      "version": null
+    },
+    {
+      "canonical_skill": "Spring",
+      "aliases": ["Spring", "Spring MVC", "Spring Boot", "SpringBoot", "Spring Cloud", "Spring Data"],
+      "category": "Framework",
+      "subcategory": "Java",
+      "version": null
+    },
+    {
+      "canonical_skill": "Hibernate",
+      "aliases": ["Hibernate", "Hibernate ORM"],
+      "category": "Framework",
+      "subcategory": "Java",
+      "version": null
+    },
+    {
+      "canonical_skill": "HTML",
+      "aliases": ["HTML", "HTML5"],
+      "category": "Frontend",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "CSS",
+      "aliases": ["CSS", "CSS3"],
+      "category": "Frontend",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "Oracle",
+      "aliases": ["Oracle", "Oracle 11g", "Oracle Database"],
+      "category": "Database",
+      "subcategory": "Relational",
+      "version": null
+    },
+    {
+      "canonical_skill": "MySQL",
+      "aliases": ["MySQL", "My SQL"],
+      "category": "Database",
+      "subcategory": "Relational",
+      "version": null
+    },
+    {
+      "canonical_skill": "SQL Server",
+      "aliases": ["SQL Server", "MSSQL", "Microsoft SQL Server"],
+      "category": "Database",
+      "subcategory": "Relational",
+      "version": null
+    },
+    {
+      "canonical_skill": "PL/SQL",
+      "aliases": ["PL/SQL", "PLSQL", "PL SQL"],
+      "category": "Programming Language",
+      "subcategory": "SQL",
+      "version": null
+    },
+    {
+      "canonical_skill": "JDBC",
+      "aliases": ["JDBC"],
+      "category": "Framework",
+      "subcategory": "Java",
+      "version": null
+    },
+    {
+      "canonical_skill": "JSP",
+      "aliases": ["JSP", "JSP 2.0"],
+      "category": "Framework",
+      "subcategory": "Java",
+      "version": null
+    },
+    {
+      "canonical_skill": "Servlet",
+      "aliases": ["Servlet", "Servlets"],
+      "category": "Framework",
+      "subcategory": "Java",
+      "version": null
+    },
+    {
+      "canonical_skill": "REST",
+      "aliases": ["REST", "RESTful", "REST API", "Restful"],
+      "category": "Web Services",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "SOAP",
+      "aliases": ["SOAP", "SOAP Web Services"],
+      "category": "Web Services",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "Git",
+      "aliases": ["Git", "GIT", "GitHub", "Git Hub"],
+      "category": "DevOps",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "SVN",
+      "aliases": ["SVN", "Subversion"],
+      "category": "DevOps",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "Maven",
+      "aliases": ["Maven", "Apache Maven"],
+      "category": "DevOps",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "Ant",
+      "aliases": ["Ant", "Apache Ant"],
+      "category": "DevOps",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "JUnit",
+      "aliases": ["JUnit"],
+      "category": "Testing",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "Log4j",
+      "aliases": ["Log4j", "Log4J"],
+      "category": "DevOps",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "Tomcat",
+      "aliases": ["Tomcat", "Apache Tomcat"],
+      "category": "Web Server",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "WebLogic",
+      "aliases": ["WebLogic", "Web Logic"],
+      "category": "Web Server",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "WebSphere",
+      "aliases": ["WebSphere", "Web Sphere"],
+      "category": "Web Server",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "Agile",
+      "aliases": ["Agile", "Agile (Scrum)", "Scrum", "SDLC-Agile"],
+      "category": "Methodology",
+      "subcategory": null,
+      "version": null
+    },
+    {
+      "canonical_skill": "Microservices",
+      "aliases": ["Microservices", "Micro Services", "MicroService", "MicroServices"],
+      "category": "Architecture",
+      "subcategory": null,
+      "version": null
     }
   ]
 }

@@ -1,7 +1,15 @@
 {
   "version": "1.0",
   "canonical_sections": {
-    "summary": ["summary", "professional summary", "profile", "objective", "career summary", "about me"],
+    "summary": [
+      "summary",
+      "professional summary",
+      "profile",
+      "objective",
+      "career summary",
+      "about me",
+      "career objective"
+    ],
     "experience": [
       "experience",
       "work experience",
@@ -10,10 +18,20 @@
       "employment history",
       "career history",
       "work history",
-      "career experience"
+      "career experience",
+      "professional work experience"
     ],
     "education": ["education", "academic background", "qualifications", "academic qualifications"],
-    "skills": ["skills", "technical skills", "core skills", "competencies", "core competencies"],
+    "skills": [
+      "skills",
+      "technical skills",
+      "core skills",
+      "competencies",
+      "core competencies",
+      "technical skill set",
+      "programming languages",
+      "skill set"
+    ],
     "certifications": ["certifications", "certificates", "licenses", "licences"],
     "projects": ["projects", "personal projects", "academic projects"],
     "publications": ["publications", "papers", "research"],

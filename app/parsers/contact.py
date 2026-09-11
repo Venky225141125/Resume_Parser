@@ -55,8 +55,8 @@ _LINK_HOSTS = {
 
 class ContactParser(FieldParser):
     def parse(self, document: Document, sections: list[DetectedSection]) -> tuple[NameInfo, ContactInfo, LocationInfo, list[LinkInfo]]:
-        blob = document.plain_text()
-        emails = _unique(_EMAIL.findall(blob))
+        blob = _normalize_contact_text(document.plain_text())
+        emails = _prefer_emails(_unique(_EMAIL.findall(blob)))
         phones = _extract_phones(blob)
         links = _extract_links(blob)
         preamble = [block.text.strip() for block in document.blocks[:12] if block.text.strip()]
@@ -82,6 +82,25 @@ def _unique(values: list[str]) -> list[str]:
         seen.add(key)
         out.append(value)
     return out
+
+
+def _normalize_contact_text(text: str) -> str:
+    return re.sub(
+        r"@([A-Za-z0-9.\-]+)\.\s+(com|net|org|edu|in)\b",
+        r"@\1.\2",
+        text,
+        flags=re.I,
+    )
+
+
+def _prefer_emails(emails: list[str]) -> list[str]:
+    real = [
+        email
+        for email in emails
+        if "proxy.jobs.net" not in email.lower() and "~" not in email
+    ]
+    rest = [email for email in emails if email not in real]
+    return real + rest
 
 
 def _extract_phones(text: str) -> list[str]:
@@ -198,6 +217,15 @@ def _extract_location(lines: list[str]) -> LocationInfo:
                 postal_match = re.search(r"\b(\d{5}(?:-\d{4})?)\b", line)
                 if postal_match:
                     postal = postal_match.group(1)
+                if state:
+                    state = re.sub(r"\s*\(\d{5}(?:-\d{4})?\)", "", state).strip()
+                    country_match = re.search(
+                        r"(?i)\b(united states|usa|india|united kingdom|uk|canada)\b",
+                        state,
+                    )
+                    if country_match and country is None:
+                        country = country_match.group(1)
+                        state = state[: country_match.start()].strip(" ,")
                 return LocationInfo(
                     raw=line,
                     city=city,

@@ -28,16 +28,16 @@ _DEGREE = re.compile(
 _DEGREE_NORM = [
     (re.compile(r"ph\.?d|doctorate", re.I), "PhD"),
     (re.compile(r"\bmba\b", re.I), "MBA"),
+    (re.compile(r"master(?:'s)?\s+of\s+technology|m\.?\s*tech", re.I), "M.Tech"),
+    (re.compile(r"bachelor(?:'s)?\s+of\s+technology|b\.?\s*tech", re.I), "B.Tech"),
+    (re.compile(r"m\.?\s*e\.?\b", re.I), "M.E."),
+    (re.compile(r"b\.?\s*e\.?\b", re.I), "B.E."),
+    (re.compile(r"m\.?\s*sc", re.I), "M.Sc"),
+    (re.compile(r"b\.?\s*sc", re.I), "B.Sc"),
+    (re.compile(r"\bmca\b", re.I), "MCA"),
+    (re.compile(r"\bbca\b", re.I), "BCA"),
     (re.compile(r"master(?:'s)?", re.I), "Master's"),
     (re.compile(r"bachelor(?:'s)?", re.I), "Bachelor's"),
-    (re.compile(r"b\.?\s*tech", re.I), "B.Tech"),
-    (re.compile(r"m\.?\s*tech", re.I), "M.Tech"),
-    (re.compile(r"b\.?\s*e\.?\b", re.I), "B.E."),
-    (re.compile(r"m\.?\s*e\.?\b", re.I), "M.E."),
-    (re.compile(r"b\.?\s*sc", re.I), "B.Sc"),
-    (re.compile(r"m\.?\s*sc", re.I), "M.Sc"),
-    (re.compile(r"\bbca\b", re.I), "BCA"),
-    (re.compile(r"\bmca\b", re.I), "MCA"),
     (re.compile(r"associate", re.I), "Associate"),
     (re.compile(r"diploma", re.I), "Diploma"),
     (re.compile(r"high school", re.I), "High School"),
@@ -49,8 +49,12 @@ _INSTITUTION = re.compile(
 )
 
 _GPA = re.compile(r"(?:gpa|cgpa)\s*[:=]?\s*(\d+(?:\.\d+)?)", re.I)
+_ATS_DUP_DEGREE = re.compile(
+    r"^(master|bachelor)\s+in\s+(master|bachelor)\b",
+    re.I,
+)
 _FIELD = re.compile(
-    r"(?:in|of)\s+([A-Za-z][A-Za-z\s&/]+)$",
+    r"(?:in|of)\s+([A-Za-z][A-Za-z\s&/.]+?)(?:\s+from\b|\s*$)",
     re.I,
 )
 
@@ -63,6 +67,13 @@ class EducationParser(FieldParser):
         items: list[EducationItem] = []
         current: EducationItem | None = None
         for line in lines:
+            if _ATS_DUP_DEGREE.search(line.strip()):
+                continue
+            if _looks_like_non_education(line):
+                if current:
+                    items.append(current)
+                    current = None
+                continue
             degree_match = _DEGREE.search(line)
             inst_match = _INSTITUTION.search(line)
             dates = parse_date_range(line)
@@ -81,9 +92,15 @@ class EducationParser(FieldParser):
                         field = field_match.group(1).strip(" ,")
                     elif "computer science" in line.lower():
                         field = "Computer Science"
+                    elif "communication systems" in line.lower():
+                        field = "Communication Systems"
                 gpa_match = _GPA.search(line)
                 current = EducationItem(
-                    institution=_clean_institution(inst_match.group("inst") if inst_match else _institution_fallback(line)),
+                    institution=_clean_institution(
+                        inst_match.group("inst")
+                        if inst_match
+                        else _institution_fallback(line) or _from_institution(line)
+                    ),
                     degree=degree_raw,
                     degree_normalized=_normalize_degree(degree_raw) if degree_raw else None,
                     field_of_study=field,
@@ -101,7 +118,9 @@ class EducationParser(FieldParser):
                     current.specialization = line
         if current:
             items.append(current)
-        return [item for item in items if item.institution or item.degree]
+        return _dedupe_education(
+            [item for item in items if item.institution or item.degree]
+        )
 
 
 def _normalize_degree(raw: str) -> str:
@@ -123,7 +142,74 @@ def _institution_fallback(line: str) -> str | None:
     return None
 
 
+def _from_institution(line: str) -> str | None:
+    match = re.search(r"\bfrom\s+([A-Z][A-Za-z0-9 .&'-]{1,60}?)(?:\s*[-–—,]|\s+\d{4}|$)", line)
+    if not match:
+        return None
+    return _clean_institution(match.group(1))
+
+
 def strip_dates(line: str) -> str:
     text = re.sub(r"\b((?:19|20)\d{2})\b", "", line)
     text = re.sub(r"[,;]\s*$", "", text)
     return text.strip(" ,;-")
+
+
+def _looks_like_non_education(line: str) -> bool:
+    lowered = line.lower()
+    if lowered.startswith(("●", "•", "-", "*")) and not _DEGREE.search(line):
+        return True
+    return bool(
+        re.search(r"\b(professional summary|total \d+ years|java developer)\b", lowered)
+        and not _DEGREE.search(line)
+    )
+
+
+def _dedupe_education(items: list[EducationItem]) -> list[EducationItem]:
+    kept: list[EducationItem] = []
+    for item in items:
+        key = (
+            (item.degree_normalized or item.degree or "").lower(),
+            item.graduation_date or item.end_date or "",
+        )
+        existing = None
+        for prev in kept:
+            prev_key = (
+                (prev.degree_normalized or prev.degree or "").lower(),
+                prev.graduation_date or prev.end_date or "",
+            )
+            if key[0] and key == prev_key:
+                existing = prev
+                break
+            if (
+                key[1]
+                and key[1] == (prev.graduation_date or prev.end_date or "")
+                and _same_degree_family(item.degree_normalized, prev.degree_normalized)
+            ):
+                existing = prev
+                break
+        if existing is None:
+            kept.append(item)
+            continue
+        if _education_score(item) > _education_score(existing):
+            kept[kept.index(existing)] = item
+    return kept
+
+
+def _same_degree_family(left: str | None, right: str | None) -> bool:
+    a, b = (left or "").lower(), (right or "").lower()
+    masters = {"master's", "m.tech", "m.e.", "m.sc", "mba", "mca"}
+    bachelors = {"bachelor's", "b.tech", "b.e.", "b.sc", "bca"}
+    return (a in masters and b in masters) or (a in bachelors and b in bachelors)
+
+
+def _education_score(item: EducationItem) -> int:
+    score = 0
+    if item.institution:
+        score += 3 if re.search(r"university|college|institute", item.institution, re.I) else 1
+        score += max(0, 40 - len(item.institution)) // 10
+    if item.field_of_study:
+        score += 2
+    if item.degree_normalized in {"M.Tech", "B.Tech", "M.E.", "B.E."}:
+        score += 2
+    return score

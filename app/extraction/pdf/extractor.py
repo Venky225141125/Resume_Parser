@@ -5,6 +5,7 @@ from statistics import median
 
 from app.core.exceptions import CorruptFileError, EncryptedDocumentError, ExtractionError
 from app.extraction.base import DocumentExtractor
+from app.extraction.pdf.native import import_fitz
 from app.extraction.sniff import FileKind
 from app.schemas.document import BBox, Block, BlockType, Document, DocumentMetadata, Line, Page, Table, Word
 
@@ -26,9 +27,9 @@ class PdfExtractor(DocumentExtractor):
 
     def extract(self, data: bytes, filename: str, content_type: str) -> Document:
         try:
-            import fitz
+            fitz = import_fitz()
         except ImportError as exc:
-            raise ExtractionError("PyMuPDF is not installed.") from exc
+            raise ExtractionError(str(exc) or "PyMuPDF is not installed.") from exc
 
         try:
             pdf = fitz.open(stream=data, filetype="pdf")

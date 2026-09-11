@@ -6,6 +6,8 @@ from io import BytesIO
 
 from docx import Document as DocxDocument
 
+from app.extraction.pdf.native import import_fitz
+
 
 def simple_txt() -> bytes:
     return (
@@ -22,7 +24,7 @@ def simple_txt() -> bytes:
 
 
 def simple_pdf(*, two_column: bool = False, pages: int = 1, header: str | None = None) -> bytes:
-    import fitz
+    fitz = import_fitz()
 
     doc = fitz.open()
     if two_column:
@@ -73,7 +75,7 @@ def multi_role_multi_project_pdf() -> bytes:
       new line sits >=1.4pt below — see `_block_lines` in
       app/parsers/support.py, which relies on exactly that distinction.
     """
-    import fitz
+    fitz = import_fitz()
 
     line_height = 13.74  # measured PyMuPDF line bbox height at fontsize=10 (helv)
     wrap_gap = 0.4
@@ -158,7 +160,7 @@ def creative_headings_pdf() -> bytes:
       dozens of bogus "M.E." education entries get manufactured from
       unrelated experience/award/reference content.
     """
-    import fitz
+    fitz = import_fitz()
 
     doc = fitz.open()
     p = doc.new_page(width=612, height=792)
@@ -185,7 +187,7 @@ def creative_headings_pdf() -> bytes:
 
 
 def empty_text_pdf() -> bytes:
-    import fitz
+    fitz = import_fitz()
 
     doc = fitz.open()
     doc.new_page(width=612, height=792)
@@ -196,7 +198,7 @@ def empty_text_pdf() -> bytes:
 
 
 def encrypted_pdf(password: str = "secret") -> bytes:
-    import fitz
+    fitz = import_fitz()
 
     doc = fitz.open()
     page = doc.new_page()
@@ -230,6 +232,52 @@ def simple_docx() -> bytes:
 
 def png_bytes() -> bytes:
     return b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+
+
+def ole_doc_bytes() -> bytes:
+    return b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 64
+
+
+def ats_plus_technical_skills_resume() -> bytes:
+    """ATS wrapper page + detailed resume: a 'Languages' skill category
+    must not steal experience/education, and skills must be harvested from
+    the whole document. Placeholder identity, no real PII.
+    """
+    return (
+        "JANE DOE\n"
+        "Java Developer, jane.doe@example.com\n"
+        "Location\n"
+        "Tampa, Florida (33601) United States\n"
+        "Work History\n"
+        "Java Developer, Northwind (Sep 2019)\n"
+        "Java Developer, Contoso (Oct 2011 - Oct 2015)\n"
+        "Skills\n"
+        "• analysis • methodologies • agile software development\n"
+        "Education\n"
+        "master in master of technology in communication systems engineering engineering state university (2011)\n"
+        "Master's Degree in Master of Technology in Communication Systems State University (2011)\n"
+        "jane.doe@example.com Java Developer +1 415 555 0100 Professional Summary:\n"
+        "● Total 6 years of IT experience in analysis, design and implementation.\n"
+        "Technical Skills:\n"
+        "Languages\n"
+        "CoreJava, Java, J2EE, SQL, PL/SQL, HTML, CSS, JavaScript, Spring, Hibernate\n"
+        "Web Servers\n"
+        "Tomcat, Web Logic, Web Sphere\n"
+        "Tools\n"
+        "GIT, Git Hub, SVN, Ant, Maven, Log4j, JUnit\n"
+        "Databases\n"
+        "Oracle, SQL, MySQL\n"
+        "Professional Experience: Northwind, Boston MA Sep 2019 to Present Java Developer\n"
+        "● Participating in system design, planning, estimation and implementation.\n"
+        "● Developing application components using Spring, Spring-Data, Spring Boot and Oracle.\n"
+        "Environment: Java 8, Spring, JUnit, Git, HTML5, CSS3 Contoso, India Oct 2011 to Oct2015\n"
+        "Java Developer\n"
+        "● Worked with JSPs and Servlets on the front end.\n"
+        "● Used Hibernate ORM to integrate with Oracle Database.\n"
+        "Environment: Core Java, JDBC, Oracle, PL/SQL, Tomcat, JUnit, Spring Education\n"
+        "● Master of Technology in Communication Systems from State University -2011\n"
+        "● Bachelor of Technology in E.C.E from JNTU - 2009\n"
+    ).encode("utf-8")
 
 
 def ole_doc_bytes() -> bytes:

@@ -36,7 +36,7 @@ _RANGE = re.compile(
     r"(?P<start>"
     r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
     r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
-    r"\.?\s+\d{4}"
+    r"\.?\s*\d{4}"
     r"|\d{1,2}/\d{4}"
     r"|\d{4}-\d{2}"
     r"|\d{4}"
@@ -44,7 +44,7 @@ _RANGE = re.compile(
     r"(?:present|current|now|ongoing|"
     r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
     r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
-    r"\.?\s+\d{4}"
+    r"\.?\s*\d{4}"
     r"|\d{1,2}/\d{4}"
     r"|\d{4}-\d{2}"
     r"|\d{4}"
@@ -70,7 +70,7 @@ def parse_date_token(token: str) -> str | None:
     month_year = re.match(
         r"^(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
         r"jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|"
-        r"dec(?:ember)?)\.?\s+(\d{4})$",
+        r"dec(?:ember)?)\.?\s*(\d{4})$",
         text,
         re.I,
     )
