@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     request_timeout_seconds: float = 60.0
     database_url: str = "sqlite:///./data/resume_parser.db"
     retention_days: int = 30
+    # Optional layer-3 skill NER. Off by default: it needs transformers and
+    # torch, which dwarf every other dependency, and adds ~1-3s per resume on
+    # CPU against ~0.8s for the whole deterministic parse. It only ever adds
+    # skills the gazetteer missed; it never overrides a deterministic result.
+    skill_ner_enabled: bool = False
+    skill_ner_model: str = "jjzha/jobbert_skill_extraction"
+    skill_ner_min_score: float = 0.6
+    skill_ner_max_chars: int = 20000
+    skill_ner_device: int = -1  # -1 = CPU; a CUDA device index to use a GPU
     llm_enabled: bool = False
     llm_api_key: str | None = None
     llm_base_url: str | None = None

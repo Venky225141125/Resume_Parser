@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
+from app.api.v1.routes import ui
 from app.core.config import get_settings
 from app.core.exceptions import ResumeParserError
 from app.core.logging import configure_logging, log_event
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
     application.include_router(api_router, prefix="/api/v1")
+    application.include_router(ui.router)
 
     @application.exception_handler(ResumeParserError)
     async def handle_parser_error(_request: Request, exc: ResumeParserError) -> JSONResponse:

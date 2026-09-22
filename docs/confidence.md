@@ -1,6 +1,6 @@
-# Confidence scoring (draft)
+# Confidence scoring
 
-Used from Phase 5. Phase 1 does not compute scores.
+Computed by `SourceConfidenceScorer` (`app/confidence/scorer.py`), wired into `ParsePipeline.parse_bytes` as the last pipeline stage before the response is returned.
 
 | Source | Typical range | Notes |
 |---|---|---|

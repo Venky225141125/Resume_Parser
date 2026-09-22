@@ -3,8 +3,12 @@ from __future__ import annotations
 import time
 import uuid
 
+from app.confidence.scorer import SourceConfidenceScorer
 from app.core.versions import PARSER_VERSION, SCHEMA_VERSION
+from app.enrichment import get_skill_extractor
+from app.enrichment.base import SkillExtractor
 from app.extraction.service import ExtractionService
+from app.normalization.candidate import CandidateNormalizer
 from app.parsers.awards import AwardsParser, PublicationsParser
 from app.parsers.certifications import CertificationParser
 from app.parsers.contact import ContactParser
@@ -17,13 +21,24 @@ from app.parsers.summary import SummaryParser
 from app.schemas.candidate import CandidateDocument, CandidateInfo, ParseResponse
 from app.schemas.document import Document
 from app.sections.detector import TaxonomySectionDetector
+from app.validation.candidate import CandidateValidator
 
 
 class ParsePipeline:
     """Deterministic-first resume parse pipeline."""
 
-    def __init__(self, extraction: ExtractionService | None = None) -> None:
+    def __init__(
+        self,
+        extraction: ExtractionService | None = None,
+        skill_extractor: SkillExtractor | None = None,
+    ) -> None:
         self._extraction = extraction or ExtractionService()
+        self._normalizer = CandidateNormalizer()
+        self._validator = CandidateValidator()
+        self._scorer = SourceConfidenceScorer()
+        # None unless skill NER is switched on in configuration, which keeps
+        # the default install free of transformers/torch.
+        self._skill_extractor = skill_extractor or get_skill_extractor()
 
     def extract_document(
         self,
@@ -47,7 +62,7 @@ class ParsePipeline:
         summary = SummaryParser().parse(document, sections)
         experience = ExperienceParser().parse(document, sections)
         education = EducationParser().parse(document, sections)
-        skills = SkillsParser().parse(document, sections)
+        skills = SkillsParser(self._skill_extractor).parse(document, sections)
         certifications = CertificationParser().parse(document, sections)
         projects = ProjectParser().parse(document, sections)
         languages = LanguageParser().parse(document, sections)
@@ -72,7 +87,9 @@ class ParsePipeline:
             publications=publications,
         )
 
-        confidence = self._confidence(candidate)
+        candidate = self._normalizer.normalize(candidate)
+        candidate = self._validator.validate(candidate)
+        confidence, needs_review = self._scorer.score(candidate)
         elapsed_ms = max(0, int(round((time.perf_counter() - started) * 1000)))
         return ParseResponse(
             document_id=uuid.uuid4().hex,
@@ -81,7 +98,7 @@ class ParsePipeline:
             processing_time_ms=elapsed_ms,
             llm_used=False,
             confidence=confidence,
-            needs_review=confidence < 0.75,
+            needs_review=needs_review,
             data=candidate,
         )
 
@@ -96,21 +113,3 @@ class ParsePipeline:
             needs_review=True,
             data=CandidateDocument(),
         )
-
-    def _confidence(self, candidate: CandidateDocument) -> float:
-        values: list[float] = []
-        if candidate.candidate.name.full:
-            values.append(0.85)
-        if candidate.candidate.contact.email:
-            values.append(0.95)
-        if candidate.candidate.contact.phone:
-            values.append(0.9)
-        for item in candidate.experience:
-            values.append(item.confidence or 0.7)
-        for item in candidate.education:
-            values.append(item.confidence or 0.7)
-        for item in candidate.skills:
-            values.append(item.confidence or 0.7)
-        if not values:
-            return 0.5
-        return round(sum(values) / len(values), 3)

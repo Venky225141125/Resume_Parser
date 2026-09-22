@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from app.normalization.degree import DegreeNormalizer
 from app.parsers.base import FieldParser
 from app.parsers.dates import parse_date_range, parse_date_token
 from app.parsers.support import fallback_section_lines, section_lines
@@ -25,24 +26,6 @@ _DEGREE = re.compile(
     re.I,
 )
 
-_DEGREE_NORM = [
-    (re.compile(r"ph\.?d|doctorate", re.I), "PhD"),
-    (re.compile(r"\bmba\b", re.I), "MBA"),
-    (re.compile(r"master(?:'s)?\s+of\s+technology|m\.?\s*tech", re.I), "M.Tech"),
-    (re.compile(r"bachelor(?:'s)?\s+of\s+technology|b\.?\s*tech", re.I), "B.Tech"),
-    (re.compile(r"m\.?\s*e\.?\b", re.I), "M.E."),
-    (re.compile(r"b\.?\s*e\.?\b", re.I), "B.E."),
-    (re.compile(r"m\.?\s*sc", re.I), "M.Sc"),
-    (re.compile(r"b\.?\s*sc", re.I), "B.Sc"),
-    (re.compile(r"\bmca\b", re.I), "MCA"),
-    (re.compile(r"\bbca\b", re.I), "BCA"),
-    (re.compile(r"master(?:'s)?", re.I), "Master's"),
-    (re.compile(r"bachelor(?:'s)?", re.I), "Bachelor's"),
-    (re.compile(r"associate", re.I), "Associate"),
-    (re.compile(r"diploma", re.I), "Diploma"),
-    (re.compile(r"high school", re.I), "High School"),
-]
-
 _INSTITUTION = re.compile(
     r"(?P<inst>(?:[A-Z][\w.&'\-]+(?:\s+[A-Z][\w.&'\-]+)*)\s+"
     r"(?:University|College|Institute|School|Academy))",
@@ -61,6 +44,7 @@ _FIELD = re.compile(
 
 class EducationParser(FieldParser):
     def parse(self, document: Document, sections: list[DetectedSection]) -> list[EducationItem]:
+        normalizer = DegreeNormalizer()
         lines = section_lines(sections, "education")
         if not lines:
             lines = fallback_section_lines(document, "education")
@@ -102,7 +86,7 @@ class EducationParser(FieldParser):
                         else _institution_fallback(line) or _from_institution(line)
                     ),
                     degree=degree_raw,
-                    degree_normalized=_normalize_degree(degree_raw) if degree_raw else None,
+                    degree_normalized=normalizer.normalize(degree_raw) if degree_raw else None,
                     field_of_study=field,
                     start_date=dates.start if dates else None,
                     end_date=dates.end if dates else year,
@@ -121,13 +105,6 @@ class EducationParser(FieldParser):
         return _dedupe_education(
             [item for item in items if item.institution or item.degree]
         )
-
-
-def _normalize_degree(raw: str) -> str:
-    for pattern, label in _DEGREE_NORM:
-        if pattern.search(raw):
-            return label
-    return raw
 
 
 def _clean_institution(value: str | None) -> str | None:

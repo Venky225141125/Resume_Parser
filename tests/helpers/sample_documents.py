@@ -143,6 +143,37 @@ def multi_role_multi_project_pdf() -> bytes:
     return buffer.getvalue()
 
 
+def large_font_name_two_column_header_pdf() -> bytes:
+    """Reproduces a real-world layout bug: a large-font name sharing a row
+    with a small-font right-column field ("Location: ..."), immediately
+    followed by a second small-font row (link bar + "Email: ... Mobile: ...").
+
+    The name's large font gives it a visually tall bbox that extends below
+    where the *next* row starts. The old row-grouping compared a new line
+    against the whole row's accumulated min/max y-envelope, so once the
+    small "Location:" line joined the tall name's row, that row's bottom
+    edge (inherited from the tall name) falsely overlapped the row below,
+    chain-merging all 4 lines into one string — mangling the name and
+    burying the phone number inside the location field. See
+    app/parsers/support.py's _row_groups/_block_lines.
+    """
+    fitz = import_fitz()
+
+    doc = fitz.open()
+    p = doc.new_page(width=612, height=792)
+    p.insert_text((36, 50), "JANE DOE", fontsize=20, fontname="hebo")
+    p.insert_text((300, 47), "Location: Example City, Example State - COUNTRY", fontsize=9)
+    p.insert_text((36, 68), "Portfolio | LinkedIn | GitHub", fontsize=9)
+    p.insert_text((280, 68), "Email: jane.doe@example.com | Mobile: 5551234567", fontsize=9)
+    p.insert_text((36, 100), "EXPERIENCE", fontsize=13, fontname="hebo")
+    p.insert_text((36, 124), "Software Engineer, Example Corp, Jan 2021 - Present", fontsize=10)
+    p.insert_text((44, 144), "- Built REST APIs.", fontsize=10)
+    buffer = BytesIO()
+    doc.save(buffer)
+    doc.close()
+    return buffer.getvalue()
+
+
 def creative_headings_pdf() -> bytes:
     """Reproduces a real-world resume that broke both section detection and
     the education parser at once (placeholder data, no PII):

@@ -1,0 +1,20 @@
+# Optional layer-3 skill NER. NOT required to run the parser.
+#
+# The deterministic path needs none of this and parses a resume in ~0.8s.
+# Installing these adds roughly 250MB of wheels plus a ~450MB model download
+# on first use, and ~1-3s of CPU inference per resume. Enable only when the
+# unnamed domain phrases a gazetteer cannot hold ("escalation handling",
+# "biopsychosocial assessment") are worth that cost.
+#
+# Install (CPU-only wheels; drop the index-url for a CUDA build):
+#   pip install -r requirements-ml.txt --extra-index-url https://download.pytorch.org/whl/cpu
+#
+# Then switch it on:
+#   RESUME_PARSER_SKILL_NER_ENABLED=true
+#   RESUME_PARSER_SKILL_NER_MODEL=jjzha/jobbert_skill_extraction
+#   RESUME_PARSER_SKILL_NER_DEVICE=-1        # -1 = CPU, or a CUDA device index
+
+-r requirements.txt
+
+torch==2.5.1
+transformers==4.46.3

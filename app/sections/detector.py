@@ -137,8 +137,15 @@ class TaxonomySectionDetector(SectionDetector):
         if not after and len(_normalize(raw).split()) <= 6:
             # Exact headings are handled above; avoid double-matching.
             return None
-        if after and not (match.group(0).rstrip().endswith(":") or len(alias.split()) >= 2):
-            # "Experience in Core Java" is prose, not a section title.
+        if after and not (
+            match.group(0).rstrip().endswith(":")
+            or len(alias.split()) >= 2
+            or after.startswith("&")
+        ):
+            # "Experience in Core Java" is prose, not a section title — but
+            # "Education & Honors" / "Skills & Abilities" is a compound
+            # heading, not prose, and single-word aliases need this carve-out
+            # to be recognized at all.
             return None
         confidence = 0.9 if block_type == "heading" else 0.84
         return _HeadingHit(canonical, alias.strip(" :"), confidence, "", after)
@@ -170,6 +177,13 @@ class TaxonomySectionDetector(SectionDetector):
             return None
         for count in (3, 2, 1):
             tail = " ".join(words[-count:])
+            if not tail[:1].isupper():
+                # A real glued heading keeps its capitalization ("...Spring
+                # Education"). Ordinary prose that merely ends in a taxonomy
+                # word ("...improved user experience.") does not — without
+                # this, that phrase gets misread as a new "Experience"
+                # heading and corrupts section boundaries.
+                continue
             canonical = self._alias_to_canonical.get(_normalize(tail))
             if not canonical:
                 continue
@@ -203,7 +217,6 @@ def _compile_alias_pattern(alias_to_canonical: dict[str, str]) -> re.Pattern[str
 
 def _block_with_text(block: Block, text: str) -> Block:
     cleaned = text.strip()
-    line = Line(text=cleaned, page=block.page, bbox=block.bbox, confidence=block.confidence)
     return Block(
         text=cleaned,
         page=block.page,
@@ -211,8 +224,46 @@ def _block_with_text(block: Block, text: str) -> Block:
         block_type="paragraph",
         column=block.column,
         confidence=block.confidence,
-        lines=[line],
+        lines=_lines_for_text(block, cleaned),
     )
+
+
+def _lines_for_text(block: Block, cleaned: str) -> list[Line]:
+    """The original Lines making up `cleaned`, keeping their own bboxes.
+
+    Splitting a block at a heading used to rebuild it as a single synthetic
+    line carrying the block's *outer* bbox. That discards every per-line
+    box, so `_block_lines` can no longer group rows or detect wraps and
+    hands back the whole remainder as one string — collapsing every project
+    (or job) under that heading into a single entry.
+
+    A line straddling the split point is trimmed to the part that survives,
+    so a heading sharing a line with its first item is not re-introduced.
+    """
+    fallback = [Line(text=cleaned, page=block.page, bbox=block.bbox, confidence=block.confidence)]
+    if not block.lines or not cleaned:
+        return fallback
+    original = block.text
+    start = original.find(cleaned)
+    if start < 0:
+        return fallback
+    end = start + len(cleaned)
+
+    kept: list[Line] = []
+    cursor = 0
+    for line in block.lines:
+        found = original.find(line.text, cursor) if line.text else -1
+        if found < 0:
+            continue
+        cursor = found + len(line.text)
+        if cursor <= start or found >= end:
+            continue
+        fragment = original[max(found, start) : min(cursor, end)].strip()
+        if fragment:
+            kept.append(
+                Line(text=fragment, page=line.page, bbox=line.bbox, confidence=line.confidence)
+            )
+    return kept or fallback
 
 
 def _normalize(text: str) -> str:

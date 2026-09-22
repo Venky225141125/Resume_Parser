@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.normalization.skills import SkillNormalizer
 from app.parsers.base import FieldParser
 from app.parsers.dates import parse_date_range, strip_date_range
 from app.parsers.support import clean_line, section_lines, split_label_prefix
@@ -10,6 +11,7 @@ from app.taxonomy_data import skill_alias_map
 import re
 
 _BULLET_RAW = re.compile(r"^\s*(?:[\-*•●▪◦‣⁃]|\d+[.)])\s+")
+_NORMALIZER = SkillNormalizer()
 _METADATA_LABEL_HINTS = ("tech", "stack", "tool", "role", "duration", "link", "url", "repo", "github")
 
 
@@ -85,11 +87,16 @@ def _url(text: str) -> str | None:
 
 
 def _techs(text: str, mapping: dict[str, tuple[str, str | None]]) -> list[str]:
-    found: list[str] = []
-    for alias, (canonical, _) in mapping.items():
-        if re.search(rf"(?i)\b{re.escape(alias)}\b", text):
-            found.append(canonical)
-    return _unique(found)
+    """Technologies named in `text`, via the shared n-gram matcher.
+
+    This used to build and search one regex per alias. That is O(text x
+    gazetteer) and, once the taxonomy grew past a few hundred entries,
+    accounted for two thirds of total parse time — roughly 30,000 regex
+    compilations per resume.
+    """
+    return _unique(
+        [mapping[alias][0] for alias in _NORMALIZER.find_aliases(text) if alias in mapping]
+    )
 
 
 def _unique(values: list[str]) -> list[str]:

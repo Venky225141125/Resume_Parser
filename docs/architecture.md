@@ -4,15 +4,15 @@ Hybrid resume parser: cheapest reliable method first, LLM only on ambiguous slic
 
 ## Current phase
 
-**Phase 1 — scaffold.** Process boots, configuration and error contracts exist, health endpoints work. Parsing returns `501 not_implemented`.
+**Pipeline wired end-to-end for text-based PDF/DOCX/TXT.** `POST /resumes/parse` runs the full deterministic pipeline and persists the result; `GET /resumes/{id}` reads it back. LLM fallback is still a disabled stub (never invoked), and OCR routing for scanned PDFs is not implemented yet — `needs_ocr` is detected during PDF extraction but nothing consumes it.
 
-## Pipeline (target)
+## Pipeline (current)
 
 ```
 file ingest → extractors → Document IR → layout → sections
     → field parsers → normalize → validate → confidence
-        → high: JSON
-        → low: LLM on excerpt → schema/business validation → JSON
+        → high/medium: JSON
+        → low: (LLM fallback not yet implemented)
 ```
 
 ## Layers

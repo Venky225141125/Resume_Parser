@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Resume Parser — Compare</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --border: #e1e4e8;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --good: #15803d;
+    --good-bg: #ecfdf3;
+    --warn: #b45309;
+    --warn-bg: #fffbeb;
+    --bad: #b91c1c;
+    --bad-bg: #fef2f2;
+    --chip-bg: #eef2ff;
+    --chip-text: #3730a3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  header {
+    padding: 16px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 {
+    font-size: 16px;
+    margin: 0;
+    margin-right: 8px;
+    white-space: nowrap;
+  }
+  header h1 span { color: var(--muted); font-weight: 400; }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    flex: 1;
+  }
+  input[type="file"] {
+    font-size: 13px;
+    max-width: 260px;
+  }
+  input[type="password"] {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 13px;
+    width: 140px;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { background: #93a3b8; cursor: not-allowed; }
+  .status {
+    font-size: 13px;
+    color: var(--muted);
+    min-height: 18px;
+  }
+  .status.error { color: var(--bad); }
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    min-height: calc(100vh - 60px);
+  }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
+  .pane {
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+  }
+  .pane-head {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pane-body {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+  }
+  #original-empty, #output-empty {
+    color: var(--muted);
+    text-align: center;
+    margin-top: 60px;
+    font-size: 13px;
+  }
+  iframe#pdf-frame {
+    width: 100%;
+    height: 100%;
+    min-height: 70vh;
+    border: none;
+  }
+  .docx-preview {
+    max-width: 760px;
+    margin: 0 auto;
+    font-size: 13px;
+  }
+  .docx-preview p { margin: 0 0 10px; }
+  pre.text-preview {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12.5px;
+  }
+  .view-toggle {
+    display: flex;
+    gap: 6px;
+  }
+  .view-toggle button {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    font-weight: 500;
+    font-size: 12px;
+  }
+  .view-toggle button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .summary-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .badge {
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .badge.good { background: var(--good-bg); color: var(--good); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.bad { background: var(--bad-bg); color: var(--bad); }
+  .badge.neutral { background: #f1f5f9; color: var(--muted); }
+  section.card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  section.card h2 {
+    font-size: 12.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  .field-row {
+    display: flex;
+    gap: 6px;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .field-row .k { color: var(--muted); min-width: 70px; }
+  .field-row .v { font-weight: 500; }
+  .field-row .v.empty { color: var(--muted); font-weight: 400; font-style: italic; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    background: var(--chip-bg);
+    color: var(--chip-text);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 12px;
+  }
+  .chip .alias { opacity: 0.65; font-size: 11px; }
+  .item-card {
+    border-left: 3px solid var(--accent);
+    padding: 6px 0 6px 12px;
+    margin-bottom: 12px;
+  }
+  .item-card:last-child { margin-bottom: 0; }
+  .item-title { font-weight: 600; font-size: 13.5px; }
+  .item-sub { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+  .item-card ul { margin: 6px 0 0; padding-left: 18px; }
+  .item-card li { margin-bottom: 3px; font-size: 12.5px; }
+  #raw-json {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12px;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 14px;
+    border-radius: 8px;
+  }
+  .empty-note { color: var(--muted); font-style: italic; font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Resume Parser <span>— compare original vs. parsed</span></h1>
+  <div class="controls">
+    <input type="file" id="file-input" accept=".pdf,.doc,.docx,.txt,application/pdf,text/plain" />
+    <input type="password" id="api-key" placeholder="X-API-Key (if required)" />
+    <button id="parse-btn" disabled>Parse resume</button>
+    <span class="status" id="status"></span>
+  </div>
+</header>
+
+<main>
+  <section class="pane">
+    <div class="pane-head">
+      <span>Original</span>
+      <span id="original-meta" class="empty-note"></span>
+    </div>
+    <div class="pane-body" id="original-body">
+      <div id="original-empty">Choose a PDF, DOCX, or TXT file to preview it here.</div>
+    </div>
+  </section>
+
+  <section class="pane">
+    <div class="pane-head">
+      <span>Parsed output</span>
+      <div class="view-toggle" id="view-toggle" style="display:none;">
+        <button id="btn-structured" class="active">Structured</button>
+        <button id="btn-raw">Raw JSON</button>
+      </div>
+    </div>
+    <div class="pane-body" id="output-body">
+      <div id="output-empty">Parsed candidate data will appear here after you click "Parse resume".</div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const fileInput = document.getElementById("file-input");
+  const apiKeyInput = document.getElementById("api-key");
+  const parseBtn = document.getElementById("parse-btn");
+  const statusEl = document.getElementById("status");
+  const originalBody = document.getElementById("original-body");
+  const originalMeta = document.getElementById("original-meta");
+  const outputBody = document.getElementById("output-body");
+  const viewToggle = document.getElementById("view-toggle");
+  const btnStructured = document.getElementById("btn-structured");
+  const btnRaw = document.getElementById("btn-raw");
+
+  let selectedFile = null;
+  let lastResult = null;
+  let objectUrl = null;
+
+  fileInput.addEventListener("change", async () => {
+    selectedFile = fileInput.files[0] || null;
+    parseBtn.disabled = !selectedFile;
+    setStatus("");
+    outputBody.innerHTML = '<div id="output-empty">Parsed candidate data will appear here after you click "Parse resume".</div>';
+    viewToggle.style.display = "none";
+    if (selectedFile) {
+      await renderOriginal(selectedFile);
+    } else {
+      originalBody.innerHTML = '<div id="original-empty">Choose a PDF, DOCX, or TXT file to preview it here.</div>';
+      originalMeta.textContent = "";
+    }
+  });
+
+  parseBtn.addEventListener("click", async () => {
+    if (!selectedFile) return;
+    setStatus("Parsing…");
+    parseBtn.disabled = true;
+    try {
+      const form = new FormData();
+      form.append("file", selectedFile);
+      const headers = {};
+      const key = apiKeyInput.value.trim();
+      if (key) headers["X-API-Key"] = key;
+
+      const response = await fetch("/api/v1/resumes/parse", {
+        method: "POST",
+        body: form,
+        headers,
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        const code = body && body.error ? body.error.code : response.status;
+        const message = body && body.error ? body.error.message : "Request failed.";
+        setStatus(`Error (${code}): ${message}`, true);
+        return;
+      }
+      lastResult = body;
+      setStatus(`Done in ${body.processing_time_ms}ms — document_id ${body.document_id}`);
+      viewToggle.style.display = "flex";
+      showStructured();
+    } catch (err) {
+      setStatus("Request failed: " + err.message, true);
+    } finally {
+      parseBtn.disabled = false;
+    }
+  });
+
+  btnStructured.addEventListener("click", showStructured);
+  btnRaw.addEventListener("click", showRaw);
+
+  function showStructured() {
+    if (!lastResult) return;
+    btnStructured.classList.add("active");
+    btnRaw.classList.remove("active");
+    outputBody.innerHTML = renderStructured(lastResult);
+  }
+
+  function showRaw() {
+    if (!lastResult) return;
+    btnRaw.classList.add("active");
+    btnStructured.classList.remove("active");
+    const pre = document.createElement("pre");
+    pre.id = "raw-json";
+    pre.textContent = JSON.stringify(lastResult, null, 2);
+    outputBody.innerHTML = "";
+    outputBody.appendChild(pre);
+  }
+
+  function setStatus(text, isError) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle("error", !!isError);
+  }
+
+  async function renderOriginal(file) {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+      objectUrl = null;
+    }
+    originalMeta.textContent = `${file.name} · ${Math.round(file.size / 1024)} KB`;
+    const name = file.name.toLowerCase();
+
+    if (file.type === "application/pdf" || name.endsWith(".pdf")) {
+      objectUrl = URL.createObjectURL(file);
+      originalBody.innerHTML = `<iframe id="pdf-frame" src="${objectUrl}"></iframe>`;
+      return;
+    }
+
+    if (name.endsWith(".docx")) {
+      if (window.mammoth) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await window.mammoth.convertToHtml({ arrayBuffer });
+          originalBody.innerHTML = `<div class="docx-preview">${result.value}</div>`;
+          return;
+        } catch (err) {
+          originalBody.innerHTML = `<div class="empty-note">Could not render DOCX preview (${err.message}). The parser can still process this file.</div>`;
+          return;
+        }
+      }
+      originalBody.innerHTML = '<div class="empty-note">DOCX preview library did not load (offline?). The parser can still process this file.</div>';
+      return;
+    }
+
+    if (name.endsWith(".txt")) {
+      const text = await file.text();
+      const pre = document.createElement("pre");
+      pre.className = "text-preview";
+      pre.textContent = text;
+      originalBody.innerHTML = "";
+      originalBody.appendChild(pre);
+      return;
+    }
+
+    originalBody.innerHTML = '<div class="empty-note">No preview available for this file type. The parser will still attempt to process it.</div>';
+  }
+
+  function esc(value) {
+    if (value === null || value === undefined) return "";
+    return String(value).replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  function field(label, value) {
+    const hasValue = value !== null && value !== undefined && value !== "";
+    return `<div class="field-row"><span class="k">${esc(label)}</span><span class="v ${hasValue ? "" : "empty"}">${hasValue ? esc(value) : "—"}</span></div>`;
+  }
+
+  function confidenceBadge(confidence, needsReview) {
+    let cls = "neutral";
+    if (typeof confidence === "number") {
+      cls = confidence >= 0.75 ? "good" : confidence >= 0.5 ? "warn" : "bad";
+    }
+    const pct = typeof confidence === "number" ? `${Math.round(confidence * 100)}%` : "n/a";
+    const parts = [`<span class="badge ${cls}">confidence ${pct}</span>`];
+    parts.push(`<span class="badge ${needsReview ? "warn" : "good"}">${needsReview ? "needs review" : "auto-approved"}</span>`);
+    return parts.join("");
+  }
+
+  function renderStructured(result) {
+    const data = result.data || {};
+    const candidate = data.candidate || {};
+    const name = candidate.name || {};
+    const contact = candidate.contact || {};
+    const location = candidate.location || {};
+    const links = candidate.links || [];
+
+    let html = "";
+
+    html += `<div class="summary-bar">
+      ${confidenceBadge(result.confidence, result.needs_review)}
+      <span class="badge neutral">llm_used: ${result.llm_used ? "yes" : "no"}</span>
+      <span class="badge neutral">${result.processing_time_ms}ms</span>
+      <span class="badge neutral">parser v${esc(result.parser_version)}</span>
+    </div>`;
+
+    html += `<section class="card"><h2>Candidate</h2>
+      ${field("Name", name.full)}
+      ${field("Email", contact.email)}
+      ${field("Phone", contact.phone)}
+      ${field("Alt. phone", contact.alternate_phone)}
+      ${field("Location", location.raw)}
+      ${links.length ? `<div class="chips" style="margin-top:8px;">${links.map((l) => `<a class="chip" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.type)}</a>`).join("")}</div>` : ""}
+    </section>`;
+
+    if (data.summary) {
+      html += `<section class="card"><h2>Summary</h2><p style="margin:0;">${esc(data.summary)}</p></section>`;
+    }
+
+    if ((data.skills || []).length) {
+      html += `<section class="card"><h2>Skills (${data.skills.length})</h2><div class="chips">`;
+      for (const skill of data.skills) {
+        const label = skill.normalized && skill.normalized !== skill.raw
+          ? `${esc(skill.normalized)} <span class="alias">(${esc(skill.raw)})</span>`
+          : esc(skill.raw);
+        html += `<span class="chip">${label}</span>`;
+      }
+      html += `</div></section>`;
+    }
+
+    if ((data.experience || []).length) {
+      html += `<section class="card"><h2>Experience (${data.experience.length})</h2>`;
+      for (const item of data.experience) {
+        const dates = `${item.start_date || "?"} – ${item.is_current ? "Present" : (item.end_date || "?")}`;
+        html += `<div class="item-card">
+          <div class="item-title">${esc(item.job_title || "Untitled role")}${item.company ? " · " + esc(item.company) : ""}</div>
+          <div class="item-sub">${esc(dates)}${item.location ? " · " + esc(item.location) : ""}${item.employment_type ? " · " + esc(item.employment_type) : ""}</div>
+          ${item.description && item.description.length ? `<ul>${item.description.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>` : ""}
+        </div>`;
+      }
+      html += `</section>`;
+    }
+
+    if ((data.education || []).length) {
+      html += `<section class="card"><h2>Education (${data.education.length})</h2>`;
+      for (const item of data.education) {
+        html += `<div class="item-card">
+          <div class="item-title">${esc(item.degree_normalized || item.degree || "Degree")}${item.field_of_study ? " · " + esc(item.field_of_study) : ""}</div>
+          <div class="item-sub">${esc(item.institution || "")}${item.graduation_date ? " · " + esc(item.graduation_date) : ""}${item.gpa ? " · GPA " + esc(item.gpa) : ""}</div>
+        </div>`;
+      }
+      html += `</section>`;
+    }
+
+    const simpleLists = [
+      ["Certifications", data.certifications, (i) => `${i.name || "Certification"}${i.issuing_organization ? " · " + i.issuing_organization : ""}`],
+      ["Projects", data.projects, (i) => i.name || "Project"],
+      ["Languages", data.languages, (i) => `${i.language}${i.proficiency ? " · " + i.proficiency : ""}`],
+      ["Awards", data.awards, (i) => i.name || "Award"],
+      ["Publications", data.publications, (i) => i.title || "Publication"],
+    ];
+    for (const [label, items, describe] of simpleLists) {
+      if (items && items.length) {
+        html += `<section class="card"><h2>${label} (${items.length})</h2><ul style="margin:0;padding-left:18px;">`;
+        html += items.map((i) => `<li style="font-size:12.5px;margin-bottom:4px;">${esc(describe(i))}</li>`).join("");
+        html += `</ul></section>`;
+      }
+    }
+
+    return html;
+  }
+})();
+</script>
+</body>
+</html>

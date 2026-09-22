@@ -1,16 +1,18 @@
 # Hybrid Resume Parser
 
-Deterministic-first resume parsing: extract, section, rules/taxonomy, validate, then optional LLM fallback. Phase 1 is scaffolding only — the parse pipeline is not implemented yet.
+Deterministic-first resume parsing: extract, section, rules/taxonomy, normalize, validate, score confidence — LLM fallback is planned but not yet implemented.
 
-## Phase 1 status
+## Status
 
 | Capability | Status |
 |---|---|
 | Health / ready API | Implemented |
 | Config, logging, errors, versions | Implemented |
-| Parse pipeline | Contract only (`501 not_implemented`) |
-| PDF/DOCX extraction | Next phase |
-| LLM | Disabled stub |
+| PDF/DOCX/TXT extraction | Implemented (PyMuPDF, python-docx) |
+| Section detection, field parsers, normalization, validation, confidence scoring | Implemented |
+| `POST /resumes/parse`, `GET /resumes/{id}` | Implemented (SQLite-backed) |
+| OCR / scanned PDFs | Not implemented — `needs_ocr` is detected but not routed yet |
+| LLM fallback | Disabled stub — never invoked |
 
 ## Setup
 

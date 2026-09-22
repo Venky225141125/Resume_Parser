@@ -42,6 +42,13 @@ class DocxExtractor(DocumentExtractor):
                 if not text:
                     continue
                 block_type = _paragraph_type(paragraph)
+                if block_type == "list_item" and not text.startswith(("-", "*", "•", "●")):
+                    # Word keeps the bullet in numbering properties rather than
+                    # in the text, so a DOCX bullet arrives glyph-less while the
+                    # same resume as a PDF carries a real "•". Normalize here so
+                    # downstream parsers see one shape regardless of source
+                    # format — otherwise every bullet reads as a new entry.
+                    text = f"• {text}"
                 line = Line(text=text, page=page, confidence=1.0)
                 lines.append(line)
                 blocks.append(
@@ -99,7 +106,22 @@ def _paragraph_type(paragraph: Paragraph) -> BlockType:
     lowered = style_name.lower()
     if "heading" in lowered or "title" in lowered:
         return "heading"
+    if _is_list_paragraph(paragraph, lowered):
+        return "list_item"
     text = paragraph.text.strip()
     if text.startswith(("-", "*", "•")):
         return "list_item"
     return "paragraph"
+
+
+def _is_list_paragraph(paragraph: Paragraph, lowered_style: str) -> bool:
+    """Word stores bullets as numbering properties (`w:numPr`), not as text —
+    so a bulleted line usually carries no bullet glyph at all. Without this,
+    every bullet in a DOCX arrives as an ordinary paragraph and the field
+    parsers read each one as a new role/entry."""
+    if "list" in lowered_style:
+        return True
+    pPr = paragraph._p.find(qn("w:pPr"))
+    if pPr is None:
+        return False
+    return pPr.find(qn("w:numPr")) is not None

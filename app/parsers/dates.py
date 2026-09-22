@@ -32,23 +32,27 @@ _MONTHS = {
 
 _PRESENT = re.compile(r"^(present|current|now|ongoing)$", re.I)
 
+_MONTH_NAME = (
+    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
+    r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+)
+
+# Order matters: the full M/D/Y form must be tried before M/Y, or "03/02/2017"
+# matches only its bare year and the surrounding range fails to parse.
+_DATE_TOKEN = (
+    # "Feb'19", "Apr' 17" — apostrophe-abbreviated years, straight or curly.
+    rf"{_MONTH_NAME}\.?\s*['‘’]\s*\d{{2}}\b"
+    rf"|{_MONTH_NAME}\.?\s*\d{{1,2}},?\s*\d{{4}}"
+    rf"|{_MONTH_NAME}\.?\s*\d{{4}}"
+    r"|\d{1,2}/\d{1,2}/\d{2,4}"
+    r"|\d{1,2}/\d{4}"
+    r"|\d{4}-\d{2}"
+    r"|\d{4}"
+)
+
 _RANGE = re.compile(
-    r"(?P<start>"
-    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
-    r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
-    r"\.?\s*\d{4}"
-    r"|\d{1,2}/\d{4}"
-    r"|\d{4}-\d{2}"
-    r"|\d{4}"
-    r")\s*[-–—to]+\s*(?P<end>"
-    r"(?:present|current|now|ongoing|"
-    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
-    r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
-    r"\.?\s*\d{4}"
-    r"|\d{1,2}/\d{4}"
-    r"|\d{4}-\d{2}"
-    r"|\d{4}"
-    r"))",
+    rf"(?P<start>{_DATE_TOKEN})\s*(?:[-–—]+|\bto\b)\s*"
+    rf"(?P<end>present|current|now|ongoing|{_DATE_TOKEN})",
     re.I,
 )
 
@@ -84,6 +88,44 @@ def parse_date_token(token: str) -> str | None:
         if not month:
             return None
         return f"{month_year.group(2)}-{month}"
+    short_year = re.match(
+        r"^(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
+        r"jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|"
+        r"dec(?:ember)?)\.?\s*['‘’]\s*(\d{2})$",
+        text,
+        re.I,
+    )
+    if short_year:
+        key = short_year.group(1).lower().rstrip(".")
+        month = _MONTHS.get(key) or _MONTHS.get(key[:3])
+        if not month:
+            return None
+        year = int(short_year.group(2))
+        return f"{2000 + year if year <= 29 else 1900 + year}-{month}"
+    day_month_year = re.match(
+        r"^(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
+        r"jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|"
+        r"dec(?:ember)?)\.?\s*\d{1,2},?\s*(\d{4})$",
+        text,
+        re.I,
+    )
+    if day_month_year:
+        key = day_month_year.group(1).lower().rstrip(".")
+        month = _MONTHS.get(key) or _MONTHS.get(key[:3])
+        if month:
+            return f"{day_month_year.group(2)}-{month}"
+        return None
+    numeric = re.match(r"^(\d{1,2})/(\d{1,2})/(\d{2,4})$", text)
+    if numeric:
+        # US convention (month first) — the dominant form in this corpus.
+        month_n = int(numeric.group(1))
+        if not 1 <= month_n <= 12:
+            return None
+        year = numeric.group(3)
+        if len(year) == 2:
+            # Two-digit years in resumes are work history, never the future.
+            year = f"20{year}" if int(year) <= 29 else f"19{year}"
+        return f"{year}-{month_n:02d}"
     slash = re.match(r"^(\d{1,2})/(\d{4})$", text)
     if slash:
         month_n = int(slash.group(1))

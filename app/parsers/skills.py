@@ -2,94 +2,43 @@ from __future__ import annotations
 
 import re
 
+from app.enrichment.base import SkillExtractor
+from app.normalization.skills import SkillNormalizer
 from app.parsers.base import FieldParser
 from app.parsers.support import combined_text, section_lines, split_label_prefix
 from app.schemas.candidate import SkillItem
 from app.schemas.document import Document
 from app.sections.base import DetectedSection
-from app.taxonomy_data import skill_alias_map
 
 _SPLIT = re.compile(r"[,;|•●\n]+")
 _MAX_SKILL_WORDS = 4
+# NER models happily return whole clauses; a skill is a phrase, not a sentence.
+_MAX_NER_SKILL_WORDS = 6
 _SKILL_SECTIONS = ("skills", "summary", "experience", "projects")
-_CATEGORY_LABELS = {
-    "languages",
-    "programming languages",
-    "tools",
-    "databases",
-    "database",
-    "web servers",
-    "web services",
-    "methodologies",
-    "operating systems",
-    "frameworks",
-    "libraries",
-    "technologies",
-    "environment",
-    "technical skills",
-    "core skills",
-    "skills",
-}
-_NOISE_SKILLS = {
-    "analysis",
-    "design",
-    "testing",
-    "core",
-    "data",
-    "interface",
-    "implementation",
-    "development",
-    "methodologies",
-}
 
 
 class SkillsParser(FieldParser):
+    def __init__(self, extractor: SkillExtractor | None = None) -> None:
+        # Injected for tests; in the pipeline it comes from configuration and
+        # is None unless skill NER is explicitly enabled.
+        self._extractor = extractor
+
     def parse(self, document: Document, sections: list[DetectedSection]) -> list[SkillItem]:
-        mapping = skill_alias_map()
+        normalizer = SkillNormalizer()
         items: list[SkillItem] = []
         seen: set[str] = set()
 
-        for token in _tokens(section_lines(sections, "skills")):
-            item = _map_token(token, mapping)
-            _add(items, seen, item)
+        for token in _tokens(normalizer, section_lines(sections, "skills")):
+            item = normalizer.match_token(token)
+            _add(normalizer, items, seen, item)
 
-        section_blob = combined_text(sections, "skills")
-        if section_blob:
-            for alias, (canonical, category) in mapping.items():
-                if canonical.lower() in seen:
-                    continue
-                if _whole_word(alias, section_blob):
-                    _add(
-                        items,
-                        seen,
-                        SkillItem(
-                            raw=alias,
-                            normalized=canonical,
-                            category=category,
-                            confidence=0.9,
-                            source="taxonomy",
-                        ),
-                    )
+        _harvest(normalizer, items, seen, combined_text(sections, "skills"), 0.9)
 
-        # Always harvest taxonomy hits from the whole resume so skills used
-        # only in experience / summary / environment lines are not dropped
-        # just because a short ATS "Skills" block already produced items.
-        blob = document.plain_text()
-        for alias, (canonical, category) in mapping.items():
-            if canonical.lower() in seen:
-                continue
-            if _whole_word(alias, blob):
-                _add(
-                    items,
-                    seen,
-                    SkillItem(
-                        raw=alias,
-                        normalized=canonical,
-                        category=category,
-                        confidence=0.78,
-                        source="taxonomy",
-                    ),
-                )
+        # Always sweep the whole resume so skills used only in experience,
+        # summary, project or "Environment:" lines are reported too — most
+        # resumes name far more of their skills in the work history than in
+        # the Skills block, and many have no Skills block at all.
+        _harvest(normalizer, items, seen, document.plain_text(), 0.78)
 
         for line in section_lines(sections, *_SKILL_SECTIONS):
             if not line.lower().startswith("environment:"):
@@ -99,58 +48,100 @@ class SkillsParser(FieldParser):
                 cleaned = token.strip(" -•*")
                 if not cleaned:
                     continue
-                _add(items, seen, _map_token(cleaned, mapping))
+                _add(normalizer, items, seen, normalizer.match_token(cleaned))
 
+        _enrich(normalizer, items, seen, document, self._extractor)
         return items
 
 
-def _add(items: list[SkillItem], seen: set[str], item: SkillItem) -> None:
-    key = (item.normalized or item.raw).lower()
-    if key in seen or key in _NOISE_SKILLS or key in _CATEGORY_LABELS:
+def _enrich(
+    normalizer: SkillNormalizer,
+    items: list[SkillItem],
+    seen: set[str],
+    document: Document,
+    extractor: SkillExtractor | None,
+) -> None:
+    """Add skills a statistical extractor found that the rules did not.
+
+    Runs last and only appends: a gazetteer cannot hold unnamed domain
+    phrases ("escalation handling", "biopsychosocial assessment") because
+    they are not products, but everything already matched deterministically
+    keeps its higher-confidence, explainable entry. Anything the extractor
+    returns that *is* in the taxonomy is canonicalized like any other token,
+    so the same skill never appears twice under two spellings.
+    """
+    if extractor is None:
         return
-    if _is_category_label(item.raw):
+    for span in extractor.extract(document.plain_text()):
+        token = span.text.strip()
+        if not token or len(token.split()) > _MAX_NER_SKILL_WORDS:
+            continue
+        item = normalizer.match_token(token)
+        if item.source != "taxonomy":
+            # Not a known skill: keep the model's own text and score, and
+            # label the source so an unverified span is distinguishable from
+            # a taxonomy match in the output.
+            item = SkillItem(
+                raw=token,
+                normalized=token,
+                category=None,
+                confidence=round(span.score, 3),
+                source=extractor.name,
+            )
+        _add(normalizer, items, seen, item)
+
+
+def _harvest(
+    normalizer: SkillNormalizer,
+    items: list[SkillItem],
+    seen: set[str],
+    blob: str,
+    confidence: float,
+) -> None:
+    """Add every taxonomy skill named anywhere in `blob`."""
+    if not blob:
+        return
+    for alias in normalizer.find_aliases(blob):
+        hit = normalizer.mapping.get(alias)
+        if hit is None:
+            continue
+        canonical, category = hit
+        if canonical.lower() in seen:
+            continue
+        _add(
+            normalizer,
+            items,
+            seen,
+            SkillItem(
+                raw=alias,
+                normalized=canonical,
+                category=category,
+                confidence=confidence,
+                source="taxonomy",
+            ),
+        )
+
+
+def _add(normalizer: SkillNormalizer, items: list[SkillItem], seen: set[str], item: SkillItem) -> None:
+    key = (item.normalized or item.raw).lower()
+    if key in seen or normalizer.is_noise_or_label(key) or normalizer.is_noise_or_label(item.raw):
         return
     seen.add(key)
     items.append(item)
 
 
-def _tokens(lines: list[str]) -> list[str]:
+def _tokens(normalizer: SkillNormalizer, lines: list[str]) -> list[str]:
     tokens: list[str] = []
     for line in lines:
         _, remainder = split_label_prefix(line)
-        if _is_category_label(remainder):
+        if normalizer.is_noise_or_label(remainder):
             continue
         parts = _SPLIT.split(remainder)
         for part in parts:
             cleaned = part.strip(" -•*")
-            if not cleaned or _is_category_label(cleaned):
+            if not cleaned or normalizer.is_noise_or_label(cleaned):
                 continue
             if len(cleaned.split()) > _MAX_SKILL_WORDS:
                 continue
             tokens.append(cleaned)
     return tokens
-
-
-def _is_category_label(text: str) -> bool:
-    return re.sub(r"\s+", " ", text.strip().lower().rstrip(":")) in _CATEGORY_LABELS
-
-
-def _map_token(token: str, mapping: dict[str, tuple[str, str | None]]) -> SkillItem:
-    hit = mapping.get(token.lower())
-    compact = re.sub(r"[\s/_]+", "", token.lower())
-    if not hit:
-        hit = mapping.get(compact)
-    if hit:
-        canonical, category = hit
-        return SkillItem(
-            raw=token,
-            normalized=canonical,
-            category=category,
-            confidence=0.95,
-            source="taxonomy",
-        )
-    return SkillItem(raw=token, normalized=token, category=None, confidence=0.7, source="rule")
-
-
-def _whole_word(alias: str, text: str) -> bool:
-    return re.search(rf"(?i)\b{re.escape(alias)}\b", text) is not None
